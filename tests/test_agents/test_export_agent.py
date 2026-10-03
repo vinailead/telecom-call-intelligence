@@ -11,6 +11,7 @@ import pytest
 
 import pipeline.agents.export_agent as exp_mod
 from pipeline.agents.export_agent import ExportAgent
+from pipeline.config import DASHBOARD_SUMMARY_MIN_CALLS
 from pipeline.memory import AgentMemory
 from pipeline.vector_memory import VectorMemoryStore
 
@@ -25,7 +26,7 @@ def isolate(monkeypatch, tmp_path):
     return tmp_path
 
 
-def _full_state(make_record, n_results: int = 2) -> dict:
+def _full_state(make_record, n_results: int = DASHBOARD_SUMMARY_MIN_CALLS) -> dict:
     results = [make_record(call_id=f"c{i}") for i in range(n_results)]
     return {
         "n_calls": n_results,
@@ -76,7 +77,7 @@ class TestFullExport:
     def test_manifest_counts_and_agent_roster(self, isolate, make_record):
         out = ExportAgent().run(_full_state(make_record))
         manifest = json.loads(open(out["export_paths"]["manifest"]).read())
-        assert manifest["n_analyzed"] == 2
+        assert manifest["n_analyzed"] == DASHBOARD_SUMMARY_MIN_CALLS
         assert manifest["n_failed"] == 0
         assert manifest["qa_verdict"] == "PASS"
         assert "InsightsAgent" in manifest["agents_executed"]
@@ -85,7 +86,7 @@ class TestFullExport:
     def test_run_recorded_in_agent_memory(self, make_record):
         ExportAgent().run(_full_state(make_record))
         history = exp_mod.MEMORY.get_run_history(last_n=1)
-        assert history[0]["n_analyzed"] == 2
+        assert history[0]["n_analyzed"] == DASHBOARD_SUMMARY_MIN_CALLS
         assert history[0]["fcr_rate_pct"] == 75.0
 
     def test_data_quality_pass_rate_recorded_in_agent_memory(self, make_record):
@@ -118,6 +119,38 @@ class TestFullExport:
         )
         out = ExportAgent().run(_full_state(make_record))
         assert Path(out["export_paths"]["csv"]).exists()
+
+
+class TestSmallRunSummaryGuard:
+    """Regression: a 3-call smoke run overwrote the 217-call production summary.json (2026-09-20)."""
+
+    def test_small_run_preserves_dashboard_summary(self, isolate, make_record):
+        production = {"kpis": {"fcr_rate_pct": 64.5}, "meta": {"total_calls_analyzed": 172}}
+        (isolate / "summary.json").write_text(json.dumps(production))
+
+        ExportAgent().run(_full_state(make_record, n_results=DASHBOARD_SUMMARY_MIN_CALLS - 1))
+
+        assert json.loads((isolate / "summary.json").read_text()) == production
+
+    def test_small_run_writes_its_own_summary_file(self, isolate, make_record):
+        out = ExportAgent().run(_full_state(make_record, n_results=DASHBOARD_SUMMARY_MIN_CALLS - 1))
+        path = Path(out["export_paths"]["summary"])
+        assert path.name.startswith("summary_run_")
+        assert json.loads(path.read_text())["kpis"]["fcr_rate_pct"] == 75.0
+
+    def test_small_run_decision_is_logged(self, isolate, make_record):
+        out = ExportAgent().run(_full_state(make_record, n_results=DASHBOARD_SUMMARY_MIN_CALLS - 1))
+        record = next(r for r in out["decision_log"] if r["decision_type"] == "export_scope")
+        assert record["evidence"]["small_run"] is True
+        assert "summary.json preserved" in record["decision"]
+
+    def test_run_at_threshold_refreshes_dashboard_summary(self, isolate, make_record):
+        (isolate / "summary.json").write_text(json.dumps({"kpis": {"fcr_rate_pct": 1.0}}))
+
+        out = ExportAgent().run(_full_state(make_record, n_results=DASHBOARD_SUMMARY_MIN_CALLS))
+
+        assert Path(out["export_paths"]["summary"]).name == "summary.json"
+        assert json.loads((isolate / "summary.json").read_text())["kpis"]["fcr_rate_pct"] == 75.0
 
 
 class TestEmergencyExport:

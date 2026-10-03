@@ -12,7 +12,7 @@ annotated-doc==0.0.5
     # via fastapi
 annotated-types==0.8.0
     # via pydantic
-anthropic==1.8.0
+anthropic==1.11.0
     # via -r requirements.txt
 anyio==4.15.1
     # via
@@ -222,7 +222,7 @@ opentelemetry-instrumentation==0.65b0
     # via
     #   openinference-instrumentation-google-genai
     #   opentelemetry-instrumentation-anthropic
-opentelemetry-instrumentation-anthropic==0.62.3
+opentelemetry-instrumentation-anthropic==0.62.4
     # via -r requirements.txt
 opentelemetry-proto==1.44.0
     # via
