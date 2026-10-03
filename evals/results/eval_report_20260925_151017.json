@@ -1,0 +1,787 @@
+{
+  "aggregate_accuracy_pct": 87.62,
+  "passed": true,
+  "regressions": [],
+  "cases": [
+    {
+      "call_id": "00000ecf65b04c5790f348e9455e790b",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "device",
+          "actual": "device",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": true,
+          "actual": false,
+          "match": false
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "distressed",
+          "actual": "distressed",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 209,
+          "actual": 209,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": false,
+          "actual": false,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "0016ecab9ee34fbbab72afc7a1c15400",
+      "status": "scored",
+      "accuracy_pct": 100.0,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "information",
+          "actual": "information",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "neutral",
+          "actual": "neutral",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 143,
+          "actual": 143,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "0008c1c2c8d945f08db57a2d0c0f387c",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "billing",
+          "actual": "billing",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "negative",
+          "actual": "neutral",
+          "match": false
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 78,
+          "actual": 78,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "0003403899eb47afb968c14904f33c96",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "account",
+          "actual": "device",
+          "match": false
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "distressed",
+          "actual": "distressed",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 141,
+          "actual": 141,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": false,
+          "actual": false,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "00197ecccddb49538f5e79927033d77d",
+      "status": "scored",
+      "accuracy_pct": 100.0,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "technical",
+          "actual": "technical",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 160,
+          "actual": 160,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "000f2ae4339b4d91ad89895b3f8bc9db",
+      "status": "scored",
+      "accuracy_pct": 100.0,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "plan",
+          "actual": "plan",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "neutral",
+          "actual": "neutral",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 228,
+          "actual": 228,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "0011a446061a4c23a9b47c830fbf52bd",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": null,
+          "actual": null,
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "neutral",
+          "actual": "neutral",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 162,
+          "actual": 162,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": false,
+          "actual": true,
+          "match": false
+        }
+      ]
+    },
+    {
+      "call_id": "0014b8e9596d4968a5b8da7f4f2047d4",
+      "status": "scored",
+      "accuracy_pct": 71.43,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "other",
+          "actual": "complaint",
+          "match": false
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "concerned",
+          "actual": "distressed",
+          "match": false
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 127,
+          "actual": 127,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "0041855abb6947b6abe28789c40ea285",
+      "status": "scored",
+      "accuracy_pct": 100.0,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "complaint",
+          "actual": "complaint",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 164,
+          "actual": 164,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "00490124804841c99dea52de09393dec",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "insurance",
+          "actual": "insurance",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "neutral",
+          "actual": "frustrated",
+          "match": false
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 150,
+          "actual": 150,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "00150a4e378f48e38e481773dfbec0ca",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "device",
+          "actual": "device",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "neutral",
+          "actual": "positive",
+          "match": false
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 188,
+          "actual": 188,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": false,
+          "actual": false,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "001abc951e0c44f48f5da7da75365d44",
+      "status": "scored",
+      "accuracy_pct": 71.43,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "information",
+          "actual": "information",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": false,
+          "match": false
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "neutral",
+          "actual": "neutral",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 173,
+          "actual": 173,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": false,
+          "match": false
+        }
+      ]
+    },
+    {
+      "call_id": "0001c1a140c3495aaaca7711c59b4bc4",
+      "status": "scored",
+      "accuracy_pct": 71.43,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "billing",
+          "actual": "billing",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": true,
+          "match": false
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "neutral",
+          "actual": "neutral",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 171,
+          "actual": 171,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": false,
+          "match": false
+        }
+      ]
+    },
+    {
+      "call_id": "0020e061d8f040e6b206bed9239c7343",
+      "status": "scored",
+      "accuracy_pct": 100.0,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "account",
+          "actual": "account",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "escalation_required",
+          "expected": true,
+          "actual": true,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "neutral",
+          "actual": "neutral",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 141,
+          "actual": 141,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": false,
+          "actual": false,
+          "match": true
+        }
+      ]
+    },
+    {
+      "call_id": "0020d194bc314eedb509dd991480d268",
+      "status": "scored",
+      "accuracy_pct": 85.71,
+      "expected_qa_grade": "HIGH",
+      "actual_qa_grade": "HIGH",
+      "reason": "",
+      "fields": [
+        {
+          "field": "issue_1_category",
+          "expected": "technical",
+          "actual": "technical",
+          "match": true
+        },
+        {
+          "field": "fcr_indicator",
+          "expected": true,
+          "actual": false,
+          "match": false
+        },
+        {
+          "field": "escalation_required",
+          "expected": false,
+          "actual": false,
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_start",
+          "expected": "frustrated",
+          "actual": "frustrated",
+          "match": true
+        },
+        {
+          "field": "customer_sentiment_end",
+          "expected": "positive",
+          "actual": "positive",
+          "match": true
+        },
+        {
+          "field": "total_duration_seconds",
+          "expected": 148,
+          "actual": 148,
+          "match": true
+        },
+        {
+          "field": "all_issues_resolved",
+          "expected": true,
+          "actual": true,
+          "match": true
+        }
+      ]
+    }
+  ]
+}

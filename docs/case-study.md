@@ -138,7 +138,7 @@ Four separate questions, four separate answers — never blended into one score,
 
 ### Golden-Set Eval — actual result, run 2026-09-25
 
-The 15 cases were frozen from the 217-call combined dataset (`full_results_combined_20260809_175823.json`, HIGH-grade calls only). The eval re-extracts them first-pass only; the run report (`outputs/eval_report_20260925_151017.json`) is gitignored, so it is reproducible with `make eval-golden` (~$0.11) rather than checkable from the repo.
+The 15 cases were frozen from the 217-call combined dataset (`full_results_combined_20260809_175823.json`, HIGH-grade calls only). The eval re-extracts them first-pass only; the full per-case, per-field report from that run is committed at [`evals/results/eval_report_20260925_151017.json`](../evals/results/eval_report_20260925_151017.json) (15 scored, 0 failures, no regressions).
 
 | Calls scored | Aggregate accuracy | Verdict | Actual spend |
 |---|---|---|---|
