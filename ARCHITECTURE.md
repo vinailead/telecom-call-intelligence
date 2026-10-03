@@ -588,6 +588,15 @@ telecom-call-intelligence/
 
 ---
 
+## cci.ai Demo Layer (`demo/`, `render.yaml`)
+
+cci.ai (Care Cost Intelligence) is the public-facing surface of the pipeline, not a separate system. `demo/app.py` is a standalone FastAPI app that serves `demo/index.html` (landing page + interactive demo) and `demo/architecture.html`, and exposes one `/analyze` endpoint that calls `pipeline.analyzer` directly — it does not run the LangGraph graph, so there is no approval gate, decision log, or export in this path.
+
+- **Fallback:** if the API is unavailable, `/analyze` returns pre-computed results for the 3 bundled sample transcripts.
+- **Mock-only mode:** `DEMO_MOCK_ONLY=1` forces the fallback unconditionally. `render.yaml` sets it for the hosted `cci-ai-demo` service, so the public instance cannot incur LLM spend regardless of traffic.
+
+---
+
 ## Design Principles
 
 1. **Stateless agents** — each agent receives state, produces updated state, holds no instance data. Safe to instantiate once and reuse across invocations.

@@ -49,6 +49,11 @@ fix wave that closed the gaps above (emergency-run baseline pollution,
 missing drift-check error handling, missing-golden-set crash, small-batch
 drift-sensitivity filter).
 
+
+### Docs — cci.ai documented
+
+cci.ai (Care Cost Intelligence) — the landing page, architecture page, and demo server in `demo/` (commit `a658612`, 2026-08-08) plus the mock-only Render blueprint `render.yaml` (PR #4) — shipped without being referenced in README/ARCHITECTURE/CHANGELOG. Added a cci.ai section to `README.md`, a demo-layer section to `ARCHITECTURE.md`, and the `demo/architecture.html` entry to the project tree. Docs only; no code change.
+
 ---
 
 ## [4.7.0] — 2026-09-25
