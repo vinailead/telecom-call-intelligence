@@ -122,8 +122,13 @@ no changes needed.
   the `.lock` files — not the abstract spec — so every environment gets the
   exact same dependency graph.
 - **After editing a `requirements*.txt` file, run `make lock` before
-  committing.** Nothing currently blocks a commit that edits the `.txt`
-  spec without regenerating the lock; this is a known gap (see §7).
+  committing.** CI's `Lock files up to date` job (`make lock-check`)
+  regenerates the locks and fails if they differ, so a `.txt` edit without a
+  matching lock cannot merge. Dependabot only edits the `.txt` specs, so its
+  pip PRs stay red until `make lock` is run and pushed to the PR branch.
+- A `Test (latest dependencies)` job installs the unpinned specs and runs the
+  unit tests — on Dependabot PRs and weekly — to show what an upgrade would
+  actually change before the lock is regenerated.
 
 ---
 
@@ -155,9 +160,9 @@ no changes needed.
 
 ## 7. Known gaps (honest, not fixed yet)
 
-- Nothing blocks committing a `requirements*.txt` edit without regenerating
-  the matching `.lock` file — `make lock` is manual. A pre-commit hook
-  comparing the two would close this.
+- A local commit can still include a `requirements*.txt` edit without a
+  regenerated `.lock`; the gap is closed at CI time (`Lock files up to date`),
+  not by a pre-commit hook.
 - `pipeline/analyzer.py` (73%), `hf_loader.py` (63%), and `vector_memory.py`
   (76%) remain below the file-level bar that `graph.py`/`insights_agent.py`
   were just raised to — acceptable for now (see §3) but the next coverage
