@@ -5,6 +5,10 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  # Weekly early-warning run of the unpinned-dependency job below, even when no PR is open.
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
 
 jobs:
   semgrep:
@@ -22,6 +26,52 @@ jobs:
       # it, semgrep exits 0 regardless of findings.
       - name: Run semgrep
         run: semgrep scan --config=p/security-audit --config=p/secrets --error
+
+  # Dependabot edits requirements*.txt, but the `test` job installs the .lock
+  # files — so without this check a Dependabot PR's green tests exercise the OLD
+  # pins and prove nothing. Fails until `make lock` is run and pushed to the PR.
+  lock-freshness:
+    name: Lock files up to date
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Pinned: different uv versions can format lock files differently, which
+      # would show up here as a false "stale lock" failure.
+      - name: Install uv
+        run: pip install uv==0.11.19
+
+      - name: Regenerate lock files and fail on any difference
+        run: make lock-check
+
+  # Tests against whatever the abstract >= specs resolve to today, i.e. what a
+  # Dependabot bump would actually ship once the lock is regenerated. Runs only
+  # for Dependabot PRs and the weekly schedule, so unrelated PRs are not blocked
+  # by upstream releases.
+  latest-deps:
+    name: Test (latest dependencies)
+    if: github.actor == 'dependabot[bot]' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ci-dummy-key-for-import-check
+      GEMINI_API_KEY: ci-dummy-key-for-import-check
+      NVIDIA_API_KEY: ci-dummy-key-for-import-check
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install unpinned production + dev dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: pytest tests/ -q --tb=short -m "not slow and not integration"
 
   test:
     name: Test (Python ${{ matrix.python-version }})

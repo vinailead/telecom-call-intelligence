@@ -3,7 +3,7 @@
 # Usage: make <target>
 # All targets assume the project virtualenv is activated (.venv/).
 
-.PHONY: help install install-dev lock test test-fast test-cov lint format \
+.PHONY: help install install-dev lock lock-check test test-fast test-cov lint format \
         type-check check run run-batches dashboard demo clean clean-outputs \
         eval-golden build-golden-set
 
@@ -22,6 +22,7 @@ help:
 	@echo "  install         Install production dependencies"
 	@echo "  install-dev     Install dev dependencies (pytest, ruff, mypy)"
 	@echo "  lock            Regenerate requirements*.lock from requirements*.txt"
+	@echo "  lock-check      Regenerate locks and fail if they differ (CI gate)"
 	@echo "  test            Run full unit test suite"
 	@echo "  test-fast       Run tests, skip @slow and @integration marks"
 	@echo "  test-cov        Run tests with coverage report"
@@ -50,9 +51,13 @@ install-dev:
 # Regenerate the .lock files after editing a requirements*.txt spec.
 # Requires `uv` (https://docs.astral.sh/uv/): brew install uv
 lock:
-	uv pip compile requirements.txt -o requirements.lock
-	uv pip compile requirements-dev.txt -o requirements-dev.lock
-	uv pip compile requirements-dashboard.txt -o requirements-dashboard.lock
+	uv pip compile requirements.txt -o requirements.lock --universal --python-version 3.11
+	uv pip compile requirements-dev.txt -o requirements-dev.lock --universal --python-version 3.11
+	uv pip compile requirements-dashboard.txt -o requirements-dashboard.lock --universal --python-version 3.11
+
+# CI gate: regenerate and fail if a lock differs from what its .txt spec resolves to.
+lock-check: lock
+	git diff --exit-code -- 'requirements*.lock'
 
 # ── Tests ──────────────────────────────────────────────────────────────
 
