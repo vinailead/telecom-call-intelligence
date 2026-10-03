@@ -8,7 +8,7 @@ A 7-node LangGraph pipeline that extracts 70+ structured fields per customer-car
 
 | | | | |
 |---|---|---|---|
-| **$319.5K/mo** modeled savings | **98.6/100** avg. extraction QA | **87.6%** golden-set eval accuracy (real run) | **7** specialized agents, one graph |
+| **$319.5K/mo** modeled savings | **99.2/100** avg. extraction QA | **87.6%** golden-set eval accuracy (real run) | **6** agents + approval gate, one 7-node graph |
 
 ---
 
@@ -117,7 +117,7 @@ Provider chain: NVIDIA NIM (Llama 3.3 70B) → Claude Haiku → rule-based fallb
 
 ### 06 · ApprovalGate — Human-in-the-loop
 
-Optional checkpoint before export: presents the KPI summary and waits for explicit operator confirmation, with a configurable auto-approve timeout for unattended batch runs. Disabled by default in this configuration — a transparent pass-through that costs nothing in CI, but the seam exists for a deployment that wants a human in the loop before every export.
+Optional checkpoint before export: presents the KPI summary and waits for explicit operator confirmation, with a configurable auto-approve timeout for unattended batch runs. Disabled by default — a transparent pass-through. When enabled it still auto-approves on timeout and on non-interactive errors, so it is a checkpoint, not a guaranteed sign-off; the seam exists for a deployment that wants a human in the loop before export.
 
 ### 07 · ExportAgent — Write + drift check
 
@@ -129,7 +129,7 @@ Four separate questions, four separate answers — never blended into one score,
 
 | Mechanism | Status | What it answers |
 |---|---|---|
-| QA Score | Live | Is the extraction well-formed? (Live average: 98.6/100) |
+| QA Score | Live | Is the extraction well-formed? (Average 99.2/100 across the 217 merged calls, all graded HIGH; source: `outputs/full_results_combined_20260809_175823.json`) |
 | Data Quality Gate | Live | Can this call's time data be trusted for cost attribution? |
 | Drift Detection | New this release | Has a run's KPIs moved beyond both a statistical (2σ) and a practical (10%) bound vs. the rolling baseline? |
 | Golden-Set Eval | New this release | Has extraction quality regressed against 15 frozen, verified-HIGH calls? |
@@ -137,6 +137,8 @@ Four separate questions, four separate answers — never blended into one score,
 | Langfuse / LangSmith | Live | Full LLM observability, one trace per call/run, transcript content redacted before export |
 
 ### Golden-Set Eval — actual result, run 2026-09-25
+
+The 15 cases were frozen from the 217-call combined dataset (`full_results_combined_20260809_175823.json`, HIGH-grade calls only). The eval re-extracts them first-pass only; the run report (`outputs/eval_report_20260925_151017.json`) is gitignored, so it is reproducible with `make eval-golden` (~$0.11) rather than checkable from the repo.
 
 | Calls scored | Aggregate accuracy | Verdict | Actual spend |
 |---|---|---|---|
