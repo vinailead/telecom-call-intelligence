@@ -42,7 +42,7 @@ Local CSV (telecom_200k.csv — primary)  ·  HuggingFace stream (fallback, 3.7M
 │              ▼                                                               │
 │  ┌──────────────────────┐    ┌──────────────────────────────────────────┐   │
 │  │  Approval Gate (6/7) │───▶│  Export Agent  (7/7)                     │   │
-│  │  human sign-off      │    │  CSV · full JSON · QA report · insights  │   │
+│  │  optional sign-off   │    │  CSV · full JSON · QA report · insights  │   │
 │  │  auto-approve CI     │    │  decisions_{ts}.json · manifest · audit  │   │
 │  └──────────────────────┘    └──────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -415,12 +415,12 @@ KPIs computed: FCR rate, AHT, escalation rate, avoidable call rate, agentic AI r
 
 ### ApprovalGate (node 6) (`pipeline/graph.py`)
 
-**Responsibilities:** Human-in-the-loop checkpoint before any outputs are written.
+**Responsibilities:** Optional human-approval checkpoint before any outputs are written. It is **not** a guaranteed human sign-off: it is disabled by default, and when enabled it still auto-approves on timeout or on a non-interactive error (see below).
 
 - `REQUIRE_HUMAN_APPROVAL=False` (default): transparent pass-through, logs `auto-approved`
 - `REQUIRE_HUMAN_APPROVAL=True`: displays KPI summary + insights source, prompts `y/N`
 - `APPROVAL_TIMEOUT_S`: auto-approves after N seconds; `0` blocks indefinitely
-- Non-interactive environments (CI, EOF): auto-approve silently
+- Non-interactive environments (CI, `EOFError`/`OSError`): auto-approve; this includes a stdin that errors, not just CI
 - Rejection: raises `RuntimeError` and halts the pipeline cleanly
 
 **Decision logging:** Always records `approval_decision` — approved/rejected/auto-approved — with FCR, insights source, and timeout as evidence.

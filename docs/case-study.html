@@ -240,7 +240,7 @@ footer{padding:24px 0 50px; text-align:center; color:var(--muted); font-size:.74
 
     <div class="agent-card">
       <div class="a-head"><span class="a-idx">06</span><span class="a-name">ApprovalGate</span><span class="a-tag">Human-in-the-loop</span></div>
-      <p>Optional checkpoint before export: presents the KPI summary and waits for explicit operator confirmation, with a configurable auto-approve timeout for unattended batch runs. Disabled by default in this configuration &mdash; a transparent pass-through that costs nothing in CI, but the seam exists for a deployment that wants a human in the loop before every export.</p>
+      <p>Optional checkpoint before export: presents the KPI summary and waits for explicit operator confirmation, with a configurable auto-approve timeout for unattended batch runs. Disabled by default &mdash; a transparent pass-through. When enabled it still auto-approves on timeout and on non-interactive errors, so it is a checkpoint, not a guaranteed sign-off; the seam exists for a deployment that wants a human in the loop before export.</p>
     </div>
 
     <div class="agent-card">
@@ -258,7 +258,7 @@ footer{padding:24px 0 50px; text-align:center; color:var(--muted); font-size:.74
       <div class="sub">Never blended into one score &mdash; extraction can be well-formed and still untrustworthy for cost attribution; a run can look fine and still be quietly drifting.</div>
     </div>
     <div class="guard-grid">
-      <div class="guard"><span class="g-status g-live">Live</span><h4>QA Score</h4><p>Live average 98.6/100 across verified runs.</p></div>
+      <div class="guard"><span class="g-status g-live">Live</span><h4>QA Score</h4><p>Average 99.2/100 across the 217 merged calls (all graded HIGH).</p></div>
       <div class="guard"><span class="g-status g-live">Live</span><h4>Data Quality Gate</h4><p>Independent pass/fail on time-data trustworthiness for cost attribution.</p></div>
       <div class="guard"><span class="g-status g-new">New</span><h4>Drift Detection</h4><p>Flags a metric only past both a 2&sigma; statistical bound and a 10% practical one &mdash; biased toward few false alarms on a ~20-run history.</p></div>
       <div class="guard"><span class="g-status g-new">New</span><h4>Golden-Set Eval</h4><p>15 real calls, ground truth frozen from a verified-HIGH run, re-extracted on demand.</p></div>
