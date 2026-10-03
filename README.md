@@ -351,7 +351,8 @@ telecom-call-intelligence/
 ├── dashboard/app.py            ← Streamlit executive dashboard (4 tabs: Cost to Serve, Automation Strategy, QA & Pipeline Health, Live Pipeline Demo)
 ├── demo/
 │   ├── app.py                  ← Standalone live demo (FastAPI) — transcript input → 6-agent pipeline → dashboard
-│   └── index.html              ← Self-contained demo UI (no build step)
+│   ├── index.html              ← cci.ai landing page + interactive demo UI (no build step)
+│   └── architecture.html       ← cci.ai architecture / cost-reference page
 ├── docs/
 │   ├── executive_deck.html     ← BCG-style 13-slide cost intelligence deck — the single source of truth for economics/success-metrics narrative
 │   └── engineering-standards.md ← Testing, CI gates, dependency pinning, token-economics/retry policy — what's enforced and where
@@ -396,6 +397,16 @@ The 7-node architecture is designed for this. Only `data_agent.py` changes when 
 
 ---
 
+## cci.ai — Care Cost Intelligence (demo & marketing site)
+
+**cci.ai** is the market-facing name and public surface of this pipeline: an enterprise-CX positioning ("Interaction Cost Intelligence"), a landing page, an architecture page, and an interactive demo. It lives in [`demo/`](demo/) and is the same pipeline underneath — no separate codebase.
+
+- `demo/app.py` — standalone FastAPI server: serves the pages and a single `/analyze` endpoint. Real Claude Haiku extraction when an API key is present; falls back to pre-computed results for the 3 bundled sample transcripts.
+- `render.yaml` — Render blueprint (`cci-ai-demo`) for the hosted demo. It sets `DEMO_MOCK_ONLY=1`, so the hosted instance **never calls an LLM or spends API credit**.
+- Run locally: `uvicorn demo.app:app --port 8001 --reload` → http://localhost:8001
+
+---
+
 ## Dataset
 
 **[`talkmap/telecom-conversation-corpus`](https://huggingface.co/datasets/talkmap/telecom-conversation-corpus)** — MIT License
@@ -408,6 +419,7 @@ The 7-node architecture is designed for this. Only `data_agent.py` changes when 
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — Multi-agent design, agentic control loops, decision traceability, security layer, state schema
 - [`docs/engineering-standards.md`](docs/engineering-standards.md) — Testing, CI gates, dependency pinning, token-economics/retry policy, and known gaps
+- [`demo/`](demo/) — cci.ai landing page, architecture page, and mock-safe demo server
 - [`SECURITY.md`](SECURITY.md) — Threat model, PII handling, API key security, vulnerability disclosure
 - [`CHANGELOG.md`](CHANGELOG.md) — Full version history
 
