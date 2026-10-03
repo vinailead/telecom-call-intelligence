@@ -60,6 +60,7 @@ cci.ai (Care Cost Intelligence) — the landing page, architecture page, and dem
 - **`.github/dependabot.yml`** — weekly pip + github-actions updates; minor/patch grouped, majors individual.
 - **`docs/runbooks/`** — pipeline-failure, quality-gate-failure (QA Score vs Data Quality Gate kept separate), plus the existing provider-outage runbook.
 - **`pipeline/metrics.py`** (+ `tests/test_metrics.py`, 8 tests: 510 → 518) — read-only health summary over existing run manifests.
+- **CI: `Lock files up to date`** (`make lock-check`, pinned uv) fails when a `requirements*.lock` differs from what its `.txt` spec resolves to — Dependabot edits only the `.txt` files, so before this its PRs tested the old pins. **`Test (latest dependencies)`** runs the unpinned specs on Dependabot PRs and weekly. `make lock` now passes `--universal --python-version 3.11`, matching the existing lock headers. Dependabot minor/patch updates are grouped into one weekly PR.
 - Consolidated the two diverging `SECURITY.md` files into the root one (acknowledgement window: 3 business days); removed duplicate lowercase PR template, duplicate `bug_report.md` issue template, and the finished `GITHUB_READINESS_PLAN.md`; rewrote `.github/GITHUB_SETUP.md` to match what GitHub Free actually allows on a private repo.
 
 ---
