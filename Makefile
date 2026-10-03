@@ -3,8 +3,9 @@
 # Usage: make <target>
 # All targets assume the project virtualenv is activated (.venv/).
 
-.PHONY: help install install-dev test test-fast test-cov lint format \
-        type-check check run run-batches dashboard demo clean clean-outputs
+.PHONY: help install install-dev lock test test-fast test-cov lint format \
+        type-check check run run-batches dashboard demo clean clean-outputs \
+        eval-golden build-golden-set
 
 PYTHON   := .venv/bin/python
 PIP      := .venv/bin/pip
@@ -20,6 +21,7 @@ help:
 	@echo "  ─────────────────────────────────────────────────"
 	@echo "  install         Install production dependencies"
 	@echo "  install-dev     Install dev dependencies (pytest, ruff, mypy)"
+	@echo "  lock            Regenerate requirements*.lock from requirements*.txt"
 	@echo "  test            Run full unit test suite"
 	@echo "  test-fast       Run tests, skip @slow and @integration marks"
 	@echo "  test-cov        Run tests with coverage report"
@@ -32,16 +34,25 @@ help:
 	@echo "  dashboard       Start the Streamlit analytics dashboard"
 	@echo "  demo            Start the live demo app (localhost:8001)"
 	@echo "  clean           Remove __pycache__, .pyc, pytest cache"
+	@echo "  eval-golden     Run the golden-set extraction-accuracy eval (~\$$0.11, real API calls)"
+	@echo "  build-golden-set  Rebuild evals/golden_set.json (SOURCE=<path>)"
 	@echo ""
 
 # ── Install ────────────────────────────────────────────────────────────
 
 install:
-	$(PIP) install -r requirements.txt
+	$(PIP) install -r requirements.lock
 
 install-dev:
-	$(PIP) install -r requirements.txt -r requirements-dev.txt
+	$(PIP) install -r requirements.lock -r requirements-dev.lock
 	$(PYTHON) -m pre_commit install
+
+# Regenerate the .lock files after editing a requirements*.txt spec.
+# Requires `uv` (https://docs.astral.sh/uv/): brew install uv
+lock:
+	uv pip compile requirements.txt -o requirements.lock
+	uv pip compile requirements-dev.txt -o requirements-dev.lock
+	uv pip compile requirements-dashboard.txt -o requirements-dashboard.lock
 
 # ── Tests ──────────────────────────────────────────────────────────────
 
@@ -53,18 +64,18 @@ test-fast:
 
 test-cov:
 	$(PYTEST) tests/ -v --tb=short \
-		--cov=pipeline --cov-report=term-missing --cov-report=html
+		--cov=pipeline --cov-report=term-missing --cov-report=html --cov-fail-under=85
 	@echo "\n  Coverage HTML report: htmlcov/index.html"
 
 # ── Code quality ───────────────────────────────────────────────────────
 
 lint:
 	$(RUFF) check pipeline/ tests/ api/ run_pipeline.py run_batches.py \
-		merge_outputs.py qa_audit.py dashboard/
+		merge_outputs.py qa_audit.py dashboard/ eval_golden_set.py scripts/
 
 format:
 	$(RUFF) format pipeline/ tests/ api/ run_pipeline.py run_batches.py \
-		merge_outputs.py qa_audit.py dashboard/
+		merge_outputs.py qa_audit.py dashboard/ eval_golden_set.py scripts/
 
 type-check:
 	$(MYPY) pipeline/ --ignore-missing-imports
@@ -75,6 +86,17 @@ type-check:
 # semgrep into that isolated env and is slower; later runs are cached.
 security-scan:
 	pre-commit run semgrep --all-files
+
+# Real-API-call regression check against evals/golden_set.json — ~$0.11
+# per run at current pricing. NEVER wired into CI or `make check`; run
+# manually, and always confirm the cost with whoever's paying first.
+eval-golden:
+	$(PYTHON) eval_golden_set.py
+
+# Rebuild evals/golden_set.json from a past run's verified-good output.
+# Usage: make build-golden-set SOURCE=outputs/full_results_combined_20260809_175823.json
+build-golden-set:
+	$(PYTHON) scripts/build_golden_set.py --source $(SOURCE)
 
 check: lint type-check test
 

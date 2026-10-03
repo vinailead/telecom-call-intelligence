@@ -13,6 +13,9 @@ env/
 dist/
 build/
 .eggs/
+.coverage
+coverage.xml
+htmlcov/
 
 # ── Dataset (682 MB — exceeds GitHub's 100 MB hard limit; never commit) ──
 telecom_200k.csv
@@ -25,6 +28,7 @@ outputs/full_results_*.json
 outputs/run_manifest_*.json
 outputs/merge_manifest_*.json
 outputs/qa_report_*.json
+outputs/eval_report_*.json
 outputs/retroactive_dq_report_*.json
 outputs/insights_*.json
 outputs/decisions_*.json
@@ -50,3 +54,6 @@ Thumbs.db
 # ── Jupyter ───────────────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb
+
+# ── Git worktrees (superpowers:using-git-worktrees) ────────────────────
+.worktrees/

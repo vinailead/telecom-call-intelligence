@@ -33,7 +33,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from pipeline.config import MEMORY_PATH
+from pipeline.config import MEMORY_PATH, RUN_HISTORY_LIMIT
 from pipeline.logger import get_logger
 
 log = get_logger(__name__)
@@ -115,7 +115,7 @@ class AgentMemory:
             run_timestamp, n_analyzed, n_failed, fcr_rate_pct,
             avg_handle_time_minutes, qa_avg_score, qa_verdict,
             total_tokens, total_cost_usd, model, insights_source,
-            offset, seed, n_calls
+            offset, seed, n_calls, is_emergency
         """
         self._data["total_runs"] += 1
 
@@ -131,15 +131,17 @@ class AgentMemory:
             "aht_minutes": run_summary.get("avg_handle_time_minutes", 0),
             "qa_avg_score": run_summary.get("qa_avg_score", 0),
             "qa_verdict": run_summary.get("qa_verdict", "N/A"),
+            "data_quality_pass_rate_pct": run_summary.get("data_quality_pass_rate_pct", 0),
             "total_tokens": run_summary.get("total_tokens", 0),
             "total_cost_usd": run_summary.get("total_cost_usd", 0),
             "model": run_summary.get("model", "unknown"),
             "insights_source": run_summary.get("insights_source", "unknown"),
+            "is_emergency": run_summary.get("is_emergency", False),
         }
-        # Keep last 50 runs
+        # Keep last RUN_HISTORY_LIMIT runs
         self._data["run_history"].append(entry)
-        if len(self._data["run_history"]) > 50:
-            self._data["run_history"] = self._data["run_history"][-50:]
+        if len(self._data["run_history"]) > RUN_HISTORY_LIMIT:
+            self._data["run_history"] = self._data["run_history"][-RUN_HISTORY_LIMIT:]
 
         # Update cumulative counters
         c = self._data["cumulative"]

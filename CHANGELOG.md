@@ -6,6 +6,106 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [4.8.0] — 2026-09-25
+
+### Added — Drift detection + golden-set eval harness
+
+Closes a gap found during the 2026-09-25 engineering-standards/portfolio
+audit: the project's documentation implied "drift detection" and "evals"
+were enforced capabilities; neither existed. Full design:
+`docs/superpowers/specs/2026-09-25-drift-eval-design.md`.
+
+- **`pipeline/drift.py`** — `DriftGuard` compares each run's KPIs
+  (`fcr_rate_pct`, `aht_minutes`, `qa_avg_score`, `data_quality_pass_rate_pct`)
+  against a rolling mean/stdev baseline built from `AgentMemory`'s existing
+  run history. A metric drifts only if it clears `max(2σ, 10% relative)` —
+  deliberately biased toward few false alarms given ~20 historical runs.
+  Wired into `ExportAgent`, before the current run is recorded into its own
+  baseline. Detection/reporting only — never blocks export.
+- **`eval_golden_set.py`** — the golden-set regression eval harness. Diffs a
+  fresh extraction against a golden case's frozen `expected` values (exact
+  match for categorical/boolean fields, ±15% tolerance for duration) via
+  `scripts/build_golden_set.py`, which freezes ground truth from a past run
+  that scored HIGH QA + passed the Data Quality Gate (not hand-labeled).
+  `make eval-golden` — real API calls (~$0.11), never wired into CI. The
+  harness is ready but **`evals/golden_set.json` itself has not been
+  generated yet** — that's a one-time, deliberately-deferred step requiring
+  a human decision on source-dataset licensing/PII review; running
+  `make eval-golden` today prints a clear message telling you to run
+  `make build-golden-set SOURCE=<path>` first, rather than crashing. Also
+  note: the harness scores first-pass extraction only (no ReAct gap-fill
+  pass), so a golden case whose original run needed gap-fill to reach its
+  frozen expected values may show a false regression here — a known,
+  accepted limitation, not a bug.
+- `pipeline/memory.py::record_run()` now persists `data_quality_pass_rate_pct`
+  (previously computed but not carried into `AgentMemory`).
+- Fixed a second, independent instance of the version-drift pattern this
+  changelog already flagged twice before: `export_agent.py`'s hardcoded
+  `"pipeline_version": "4.5.0"` manifest literal had gone stale after the
+  4.7.0 bump. `scripts/check_docs_sync.py` now checks this literal too.
+
+Net: +46 tests (464 → 510) — includes the 7 tests added in the post-review
+fix wave that closed the gaps above (emergency-run baseline pollution,
+missing drift-check error handling, missing-golden-set crash, small-batch
+drift-sensitivity filter).
+
+
+### Docs — cci.ai documented
+
+cci.ai (Care Cost Intelligence) — the landing page, architecture page, and demo server in `demo/` (commit `a658612`, 2026-08-08) plus the mock-only Render blueprint `render.yaml` (PR #4) — shipped without being referenced in README/ARCHITECTURE/CHANGELOG. Added a cci.ai section to `README.md`, a demo-layer section to `ARCHITECTURE.md`, and the `demo/architecture.html` entry to the project tree. Docs only; no code change.
+
+---
+
+## [4.7.0] — 2026-09-25
+
+### Fixed — Engineering-standards audit: doc drift, CI gaps, dependency pinning, coverage gaps
+
+An audit against general engineering best practices (deep-module review discipline,
+CI/CD gate completeness, dependency reproducibility) surfaced six findings, all fixed:
+
+- **`pyproject.toml` version (4.1.1) had drifted from CHANGELOG.md's top entry (4.6.0)** —
+  the same drift this file's own [4.1.0] entry already called out as fixed once before.
+  README.md and CONTRIBUTING.md separately quoted the test count as 399 and 342, against
+  432 actually passing at audit time, and README.md/ARCHITECTURE.md's "v4.5" banners were
+  two releases stale. `scripts/check_docs_sync.py` (new) now fails CI and pre-commit if
+  pyproject's version diverges from CHANGELOG's top heading, if any test-count mention in
+  README.md/CONTRIBUTING.md diverges from what pytest actually collects, or if a "vX.Y"
+  banner in README.md/ARCHITECTURE.md diverges from pyproject's version — turning a
+  documented habit into an enforced gate.
+- **`make check`'s "full gate" (lint + type-check + test) was never actually run in CI** —
+  `.github/workflows/ci.yml` only ran ruff and pytest; a type error could merge to `main`
+  undetected. Added a `mypy pipeline/` step.
+- **Coverage reporting in CI was `continue-on-error: true`** — coverage could regress
+  silently with nothing to catch it. Added `--cov-fail-under=85` (current: ~91%).
+- **`mypy` had `check_untyped_defs` off by default** — the body of any function missing a
+  return-type annotation was never type-checked at all, a silent blind spot. Enabled it;
+  no new errors surfaced (the 33 unannotated defs in `pipeline/` were already correct).
+- **No dependency lock file** — all of `requirements*.txt` used unbounded `>=` specs with
+  zero pins, so a same-day upstream release could break CI or prod with no warning. Added
+  `requirements.lock`/`requirements-dev.lock`/`requirements-dashboard.lock` (universal,
+  Python 3.11+ resolution via `uv pip compile`, regenerated with `make lock`); CI, Render,
+  and `make install`/`install-dev` now install from the `.lock` files. The `.txt` files
+  remain the human-edited abstract spec.
+- **`pipeline/graph.py` (35% coverage) and `insights_agent.py` (64%) were the least-tested
+  modules in the codebase and the most architecturally load-bearing** — `graph.py` is the
+  LangGraph routing/wiring, `insights_agent.py` is the NVIDIA→Claude→rule-based fallback
+  chain. Added tests for every node wrapper, the human-approval-gate branches (auto-approve,
+  timeout, explicit reject, non-interactive EOFError), LangSmith tracing config, the
+  vector-memory build-time load guard, and the NVIDIA/Claude provider seam (success, missing
+  key, circuit-breaker trip/skip, 429-vs-timeout distinction, markdown-fence stripping).
+  `graph.py` → 99%, `insights_agent.py` → 98%, overall `pipeline/` coverage 82% → 91%.
+  +32 tests (432 → 464).
+
+Also audited for cost-leakage/retry risk per the same rubric: `analyzer.py`'s per-call
+retry loop (max 3 attempts, exponential backoff) and the SDK-level `max_retries=1` policy
+in `llm_clients.py` were confirmed intentional and correctly scoped — bounded, logged, and
+distinct from `orchestrator.py`'s strict no-auto-retry-on-batch-failure policy, which
+remains untouched. No changes needed there.
+
+Standards followed and how they're enforced day-to-day: `docs/engineering-standards.md`.
+
+---
+
 ## [4.6.0] — 2026-08-13
 
 ### Fixed — Architecture audit: dead code, duplicated seams, broken interface promise

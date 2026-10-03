@@ -134,3 +134,23 @@ VECTOR_MEMORY_TOP_K = 3  # top-K similar historical runs to retrieve
 MAX_TRANSCRIPT_CHARS = 50_000  # hard cap; beyond this is suspicious
 MAX_FIELD_STRING_LEN = 2_000  # per-field string limit in LLM output
 MAX_RESPONSE_BYTES = 32_768  # max LLM JSON response size (32 KB)
+
+# ── Drift detection ────────────────────────────────────────────────────────
+# Cross-run KPI drift check (pipeline/drift.py), wired into ExportAgent.
+# Detection/reporting only — never blocks export or the orchestrator.
+DRIFT_MIN_RUNS_FOR_BASELINE = 5  # need at least this many prior runs to compute a baseline
+DRIFT_BASELINE_WINDOW = 10  # how many prior runs form the rolling baseline
+DRIFT_Z_THRESHOLD = 2.0  # standard deviations from baseline mean
+DRIFT_PCT_THRESHOLD = 0.10  # relative-deviation floor (10%) — see drift.py for why both exist
+DRIFT_METRICS = ("fcr_rate_pct", "aht_minutes", "qa_avg_score", "data_quality_pass_rate_pct")
+DRIFT_MIN_CALLS_PER_RUN = 10  # a run/history entry needs >= this many analyzed calls to be
+# trusted for drift comparison — below this, per-batch binomial noise dominates (see
+# docs/engineering-standards.md §7 for the real-data finding that motivated this).
+
+# ── Eval harness (golden-set regression) ───────────────────────────────
+# eval_golden_set.py — real-API-call regression check, run manually via
+# `make eval-golden`, never in CI (see docs/superpowers/specs/
+# 2026-09-25-drift-eval-design.md for why).
+EVAL_PASS_THRESHOLD_PCT = 85.0  # minimum aggregate field-accuracy to pass
+EVAL_DURATION_TOLERANCE_PCT = 0.15  # total_duration_seconds tolerance band
+EVAL_DURATION_FIELD = "total_duration_seconds"

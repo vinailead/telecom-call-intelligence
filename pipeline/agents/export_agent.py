@@ -21,8 +21,16 @@ from datetime import datetime
 
 import pandas as pd
 
-from pipeline.config import OUTPUT_DIR, QUALITY_WARN_RATE, VECTOR_MEMORY_ENABLED
+from pipeline.config import (
+    DRIFT_BASELINE_WINDOW,
+    DRIFT_MIN_CALLS_PER_RUN,
+    DRIFT_MIN_RUNS_FOR_BASELINE,
+    OUTPUT_DIR,
+    QUALITY_WARN_RATE,
+    VECTOR_MEMORY_ENABLED,
+)
 from pipeline.decision_log import DecisionLogger, summarize_decisions
+from pipeline.drift import DRIFT_GUARD, DriftReport
 from pipeline.governance import AUDIT_LOG
 from pipeline.logger import get_logger
 from pipeline.memory import MEMORY
@@ -62,6 +70,90 @@ class ExportAgent:
         # empty — overwriting summary.json then would blank the dashboard, so
         # the last good run's summary is preserved instead.
         emergency_run = not metrics.get("kpis")
+
+        # ── Drift check — compare this run's KPIs against the rolling
+        # baseline BEFORE this run is recorded into that same history (the
+        # MEMORY.record_run() call further below). Detection/reporting
+        # only — never blocks export. See pipeline/drift.py.
+        MEMORY.load()
+        kpis = metrics.get("kpis", {})
+        qa_summary_for_drift = qa_report.get("summary", {})
+        if emergency_run:
+            drift_report = DriftReport(baseline_run_count=0, sufficient_history=False)
+            drift_decision = "Skipped — emergency export has no aggregated KPIs to compare"
+            drift_reason = "Quality gate failure path: aggregated_metrics has no kpis"
+        else:
+            # Never allowed to fail the export — a corrupted agent_memory.json
+            # value or an unexpected DriftGuard exception must not halt the
+            # whole multi-batch run under the strict-failure orchestrator
+            # policy. Same fallback pattern as the vector-memory write below.
+            try:
+                n_analyzed_current = len(results)
+                if n_analyzed_current < DRIFT_MIN_CALLS_PER_RUN:
+                    drift_report = DriftReport(baseline_run_count=0, sufficient_history=False)
+                    drift_decision = (
+                        "Skipped — current run too small for a trustworthy drift verdict"
+                    )
+                    drift_reason = (
+                        f"Only {n_analyzed_current} call(s) analyzed this run — need at least "
+                        f"{DRIFT_MIN_CALLS_PER_RUN} for per-batch noise not to dominate"
+                    )
+                else:
+                    current_metrics = {
+                        "fcr_rate_pct": kpis.get("fcr_rate_pct", 0),
+                        "aht_minutes": kpis.get("avg_handle_time_minutes", 0),
+                        "qa_avg_score": qa_summary_for_drift.get("avg_score", 0),
+                        "data_quality_pass_rate_pct": qa_summary_for_drift.get(
+                            "data_quality_pass_rate_pct", 100.0
+                        ),
+                    }
+                    # Exclude emergency (zeroed-KPI) runs and small/noisy runs from
+                    # the baseline itself — order matters: last_n takes the N most
+                    # recent entries first, THEN this filters, so the effective
+                    # window can end up smaller than DRIFT_BASELINE_WINDOW. That's
+                    # fine: DriftGuard already handles a short history correctly
+                    # via DRIFT_MIN_RUNS_FOR_BASELINE.
+                    history = [
+                        h
+                        for h in MEMORY.get_run_history(last_n=DRIFT_BASELINE_WINDOW)
+                        if not h.get("is_emergency")
+                        and h.get("n_analyzed", 0) >= DRIFT_MIN_CALLS_PER_RUN
+                    ]
+                    drift_report = DRIFT_GUARD.check(current=current_metrics, history=history)
+                    if drift_report.sufficient_history:
+                        drift_decision = (
+                            f"Drift check: {'DRIFTED' if drift_report.any_drifted else 'stable'} "
+                            f"({drift_report.baseline_run_count} prior run(s) in baseline)"
+                        )
+                        n_drifted = sum(1 for m in drift_report.metrics if m.drifted)
+                        drift_reason = (
+                            f"{n_drifted} of {len(drift_report.metrics)} tracked metric(s) "
+                            "exceeded the drift threshold"
+                        )
+                    else:
+                        drift_decision = "Insufficient history for drift baseline"
+                        drift_reason = (
+                            f"Only {drift_report.baseline_run_count} prior run(s) recorded — "
+                            f"need {DRIFT_MIN_RUNS_FOR_BASELINE} to establish a baseline"
+                        )
+            except Exception as exc:
+                drift_report = DriftReport(baseline_run_count=0, sufficient_history=False)
+                drift_decision = "Skipped — drift check errored"
+                drift_reason = f"{type(exc).__name__} raised during drift computation"
+                log.warning(
+                    "[%s] Drift check failed (%s) — export proceeding without a drift verdict",
+                    self.name,
+                    exc,
+                )
+        dl.log(
+            decision_type="drift_check",
+            decision=drift_decision,
+            reason=drift_reason,
+            evidence=drift_report.to_dict(),
+            confidence="high",
+            alternatives=["Block export on drift (rejected: detection/reporting only, per design)"],
+        )
+
         dl.log(
             decision_type="export_scope",
             decision=(
@@ -95,6 +187,7 @@ class ExportAgent:
             metrics["qa_summary"] = qa_report.get("summary", {})
             metrics["agent_insights"] = insights
             metrics["decision_summary"] = summarize_decisions(decision_log)
+            metrics["drift_report"] = drift_report.to_dict()
 
             # Run-specific AHT/phase-economics disclaimer — computed, not static,
             # so it lives in the actual report the business reads. Surfaced by
@@ -157,7 +250,7 @@ class ExportAgent:
 
         manifest = {
             "run_timestamp": ts,
-            "pipeline_version": "4.5.0",
+            "pipeline_version": "4.8.0",
             "agents_executed": agents_executed,
             "offset": state.get("offset", 0),
             "seed": state.get("seed", 42),
@@ -220,10 +313,14 @@ class ExportAgent:
                 "avg_handle_time_minutes": kpis.get("avg_handle_time_minutes", 0),
                 "qa_avg_score": qa_report.get("summary", {}).get("avg_score", 0),
                 "qa_verdict": qa_report.get("dataset_verdict", "N/A"),
+                "data_quality_pass_rate_pct": qa_report.get("summary", {}).get(
+                    "data_quality_pass_rate_pct", 100.0
+                ),
                 "total_tokens": usage.get("total_tokens", 0),
                 "total_cost_usd": usage.get("total_cost_usd", 0),
                 "model": usage.get("model", "unknown"),
                 "insights_source": insights.get("source", "unknown"),
+                "is_emergency": emergency_run,
             }
         )
         MEMORY.save()
@@ -269,4 +366,9 @@ class ExportAgent:
             OUTPUT_DIR.resolve(),
             AUDIT_LOG.summary()["total_events"],
         )
-        return {**state, "export_paths": export_paths, "decision_log": decision_log}
+        return {
+            **state,
+            "export_paths": export_paths,
+            "decision_log": decision_log,
+            "drift_report": drift_report.to_dict(),
+        }
