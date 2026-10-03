@@ -436,7 +436,7 @@ KPIs computed: FCR rate, AHT, escalation rate, avoidable call rate, agentic AI r
 | File | Purpose |
 |------|---------|
 | `call_results_{ts}.csv` | Per-call flat CSV for BI tools / analysts |
-| `summary.json` | Streamlit dashboard source of truth (overwritten each run); includes `decision_summary` |
+| `summary.json` | Streamlit dashboard source of truth (overwritten by each run of >= `DASHBOARD_SUMMARY_MIN_CALLS` (10) analyzed calls, then by `merge_outputs.py`); includes `decision_summary`. Smaller runs (e.g. the 3-call `make run`) write `summary_run_{ts}.json` instead, so a smoke test cannot replace the production aggregate |
 | `full_results_{ts}.json` | Complete per-call JSON with QA scores embedded |
 | `qa_report_{ts}.json` | Standalone QA audit report |
 | `insights_{ts}.json` | InsightsAgent deliberated recommendations |
