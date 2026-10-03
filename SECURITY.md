@@ -76,14 +76,23 @@ The telecom corpus (`talkmap/telecom-conversation-corpus`) is synthetic and anon
 
 ---
 
-## Reporting a Vulnerability
+## Supported Versions
 
-To report a security vulnerability:
+| Version | Supported |
+|---------|-----------|
+| `main` | Yes |
+| other branches | Best effort — please report a vulnerability regardless of branch |
+
+---
+
+## Reporting a Vulnerability
 
 1. **Do not open a public GitHub issue**
 2. Email **vinoth.n@outlook.com** with subject: `[SECURITY] Telecom Call Intelligence`
-3. Include: description, reproduction steps, potential impact, and suggested fix if known
-4. You will receive a response within 48 hours
-5. Agreed-upon fixes will be released within 7 days of confirmation
+3. Include: summary, affected files or modules, reproduction steps, impact assessment, and suggested remediation if known
+4. You will receive an acknowledgement within 3 business days
+5. A remediation estimate follows based on impact and complexity
+
+Please do not paste leaked API keys, credentials, secrets from logs/outputs, or details of private infrastructure into any public issue or discussion. Use responsible disclosure.
 
 We appreciate responsible disclosure and will acknowledge your contribution.
