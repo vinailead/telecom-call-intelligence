@@ -26,6 +26,7 @@ telecom_200k.csv
 outputs/call_results_*.csv
 outputs/full_results_*.json
 outputs/run_manifest_*.json
+outputs/summary_run_*.json
 outputs/merge_manifest_*.json
 outputs/qa_report_*.json
 outputs/eval_report_*.json
