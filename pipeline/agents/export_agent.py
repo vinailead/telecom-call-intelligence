@@ -5,7 +5,8 @@ Persists all pipeline outputs to disk and produces the audit trail.
 
 Outputs written:
   call_results_{ts}.csv        — per-call CSV for BI tools / data science
-  summary.json                 — Streamlit dashboard source of truth
+  summary.json                 — Streamlit dashboard source of truth (not written by runs of
+                                 < DASHBOARD_SUMMARY_MIN_CALLS calls; those write summary_run_{ts}.json)
   full_results_{ts}.json       — complete per-call JSON with QA scores
   qa_report_{ts}.json          — standalone QA audit report
   insights_{ts}.json           — InsightsAgent recommendations
@@ -22,6 +23,7 @@ from datetime import datetime
 import pandas as pd
 
 from pipeline.config import (
+    DASHBOARD_SUMMARY_MIN_CALLS,
     DRIFT_BASELINE_WINDOW,
     DRIFT_MIN_CALLS_PER_RUN,
     DRIFT_MIN_RUNS_FOR_BASELINE,
@@ -70,6 +72,7 @@ class ExportAgent:
         # empty — overwriting summary.json then would blank the dashboard, so
         # the last good run's summary is preserved instead.
         emergency_run = not metrics.get("kpis")
+        small_run = not emergency_run and len(results) < DASHBOARD_SUMMARY_MIN_CALLS
 
         # ── Drift check — compare this run's KPIs against the rolling
         # baseline BEFORE this run is recorded into that same history (the
@@ -159,16 +162,22 @@ class ExportAgent:
             decision=(
                 "Emergency export: per-call artifacts only, summary.json preserved"
                 if emergency_run
+                else f"Small run ({len(results)} records): summary written to summary_run_{ts}.json, summary.json preserved"
+                if small_run
                 else f"Full export: {len(results)} records + summary.json refreshed"
             ),
             reason=(
                 "aggregated_metrics has no KPIs (quality gate failure path) — overwriting "
                 "the dashboard source of truth with empty metrics would blank it"
                 if emergency_run
+                else f"Fewer than {DASHBOARD_SUMMARY_MIN_CALLS} analyzed calls — a smoke-test-sized "
+                "run must not replace the dashboard's production aggregate"
+                if small_run
                 else "Normal pipeline completion — all artifacts written including dashboard summary"
             ),
             evidence={
                 "emergency_run": emergency_run,
+                "small_run": small_run,
                 "n_records": len(results),
                 "qa_verdict": qa_report.get("dataset_verdict", "N/A"),
             },
@@ -176,12 +185,14 @@ class ExportAgent:
             alternatives=(
                 ["Overwrite summary.json with empty metrics (rejected: blanks dashboard)"]
                 if emergency_run
+                else ["Overwrite summary.json (rejected: would replace the production aggregate)"]
+                if small_run
                 else ["Skip summary refresh (rejected: dashboard would show stale data)"]
             ),
         )
         decision_log = dl.finalize()  # include the export decision in all artifacts below
 
-        summary_path = OUTPUT_DIR / "summary.json"
+        summary_path = OUTPUT_DIR / (f"summary_run_{ts}.json" if small_run else "summary.json")
         if not emergency_run:
             metrics["token_usage"] = usage
             metrics["qa_summary"] = qa_report.get("summary", {})
