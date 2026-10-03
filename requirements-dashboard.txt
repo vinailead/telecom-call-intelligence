@@ -2,4 +2,4 @@
 # requirements-dashboard.lock (run `make lock` after editing this file).
 # Full pipeline requirements are in requirements.txt
 streamlit>=1.64.0
-plotly>=5.22.0
+plotly>=7.1.0
