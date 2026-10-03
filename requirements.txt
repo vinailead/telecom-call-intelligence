@@ -36,7 +36,7 @@ numpy>=2.4.6
 
 # Dashboard
 streamlit>=1.64.0
-plotly>=5.22.0
+plotly>=7.1.0
 
 # FastAPI wrapper
 fastapi>=0.111.0
