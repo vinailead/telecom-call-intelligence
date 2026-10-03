@@ -140,7 +140,7 @@ class TestNodeWrappers:
         with patch.object(graph_mod, "_quality_agent") as mock_agent:
             mock_agent.run.return_value = fake_result
             result = graph_mod.quality_node({"analysis_results": []})
-        assert result is fake_result
+        assert result["qa_report"] is fake_result["qa_report"]
 
     def test_quality_node_gate_failure_prints_warning(self, capsys):
         import pipeline.graph as graph_mod
@@ -150,6 +150,58 @@ class TestNodeWrappers:
             mock_agent.run.return_value = fake_result
             graph_mod.quality_node({"analysis_results": []})
         assert "Quality gate FAILED" in capsys.readouterr().out
+
+    @pytest.mark.parametrize("gate_failed, destination", [(False, "aggregate"), (True, "export")])
+    def test_quality_node_records_routing_decision(self, gate_failed, destination):
+        import pipeline.graph as graph_mod
+
+        prior = {"agent": "QualityAgent", "decision_type": "qa_grade_assignment"}
+        fake_result = {
+            "qa_report": {"dataset_verdict": "FAIL", "_quality_gate_failed": gate_failed},
+            "decision_log": [prior],
+        }
+        with patch.object(graph_mod, "_quality_agent") as mock_agent:
+            mock_agent.run.return_value = fake_result
+            result = graph_mod.quality_node({"analysis_results": []})
+
+        log = result["decision_log"]
+        assert log[0] == prior
+        routing = [r for r in log if r["decision_type"] == "routing_decision"]
+        assert len(routing) == 1
+        assert routing[0]["agent"] == "GraphRouter"
+        assert routing[0]["evidence"]["destination"] == destination
+        assert routing[0]["evidence"]["quality_gate_failed"] is gate_failed
+
+    @pytest.mark.parametrize("gate_failed, destination", [(False, "aggregate"), (True, "export")])
+    def test_routing_decision_survives_the_compiled_graph(self, gate_failed, destination):
+        """Regression: the record used to be built inside the conditional edge, where LangGraph drops state changes."""
+        from langgraph.graph import END, StateGraph
+
+        import pipeline.graph as graph_mod
+
+        fake_result = {
+            "qa_report": {"dataset_verdict": "FAIL", "_quality_gate_failed": gate_failed},
+            "decision_log": [],
+        }
+        builder = StateGraph(graph_mod.PipelineState)
+        builder.add_node("quality", graph_mod.quality_node)
+        builder.add_node("aggregate", lambda state: {})
+        builder.add_node("export", lambda state: {})
+        builder.set_entry_point("quality")
+        builder.add_conditional_edges(
+            "quality",
+            graph_mod._route_after_quality,
+            {"aggregate": "aggregate", "export": "export"},
+        )
+        builder.add_edge("aggregate", END)
+        builder.add_edge("export", END)
+
+        with patch.object(graph_mod, "_quality_agent") as mock_agent:
+            mock_agent.run.return_value = fake_result
+            final = builder.compile().invoke({"analysis_results": []})
+
+        routing = [r for r in final["decision_log"] if r["decision_type"] == "routing_decision"]
+        assert [r["evidence"]["destination"] for r in routing] == [destination]
 
     def test_aggregate_node_delegates_to_aggregation_agent(self):
         import pipeline.graph as graph_mod

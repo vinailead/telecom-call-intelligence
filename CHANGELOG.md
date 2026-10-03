@@ -60,6 +60,7 @@ cci.ai (Care Cost Intelligence) — the landing page, architecture page, and dem
 - **`.github/dependabot.yml`** — weekly pip + github-actions updates; minor/patch grouped, majors individual.
 - **`docs/runbooks/`** — pipeline-failure, quality-gate-failure (QA Score vs Data Quality Gate kept separate), plus the existing provider-outage runbook.
 - **`pipeline/metrics.py`** (+ `tests/test_metrics.py`, 8 tests: 510 → 518) — read-only health summary over existing run manifests.
+- **Fixed: the quality→aggregate/export routing decision was never persisted.** `_route_after_quality` built a `GraphRouter` `routing_decision` record inside a conditional edge, where LangGraph discards state changes, so the exported decision log was missing the one decision that sends a run to emergency export. `quality_node` now writes the record (routing function is pure); 4 new tests incl. one through a compiled `StateGraph` (518 → 522).
 - Consolidated the two diverging `SECURITY.md` files into the root one (acknowledgement window: 3 business days); removed duplicate lowercase PR template, duplicate `bug_report.md` issue template, and the finished `GITHUB_READINESS_PLAN.md`; rewrote `.github/GITHUB_SETUP.md` to match what GitHub Free actually allows on a private repo.
 
 ---
