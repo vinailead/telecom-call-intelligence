@@ -328,6 +328,8 @@ telecom-call-intelligence/
 │   ├── vector_memory.py        ← Semantic KPI-similarity memory (embeds each run)
 │   ├── llm_clients.py          ← Single seam for Anthropic/Gemini/NVIDIA client construction
 │   ├── circuit_breaker.py      ← Shared provider-unavailability breaker
+│   ├── drift.py                ← DriftGuard: cross-run KPI drift detection vs. AgentMemory history
+│   ├── metrics.py              ← Read-only run-health summary over run_manifest_*.json (python -m pipeline.metrics)
 │   ├── analyzer.py             ← LLM client (Claude/Gemini, CoT, ReAct, checkpoint)
 │   ├── aggregator.py           ← KPI computation + cost-lever estimates
 │   ├── hf_loader.py            ← CSV/HuggingFace streaming + offset batching
@@ -350,12 +352,20 @@ telecom-call-intelligence/
 │
 ├── dashboard/app.py            ← Streamlit executive dashboard (4 tabs: Cost to Serve, Automation Strategy, QA & Pipeline Health, Live Pipeline Demo)
 ├── demo/
-│   ├── app.py                  ← Standalone live demo (FastAPI) — transcript input → 6-agent pipeline → dashboard
+│   ├── app.py                  ← Standalone demo server (FastAPI) — transcript input → single-call extraction via `analyze_transcript` (does not run the LangGraph graph)
 │   ├── index.html              ← cci.ai landing page + interactive demo UI (no build step)
 │   └── architecture.html       ← cci.ai architecture / cost-reference page
 ├── docs/
 │   ├── executive_deck.html     ← BCG-style 13-slide cost intelligence deck — the single source of truth for economics/success-metrics narrative
+│   ├── runbooks/               ← Pipeline-failure, provider-outage, quality-gate-failure procedures
 │   └── engineering-standards.md ← Testing, CI gates, dependency pinning, token-economics/retry policy — what's enforced and where
+├── scripts/
+│   ├── check_docs_sync.py      ← CI/pre-commit gate: version, test-count and banner consistency across docs
+│   └── build_golden_set.py     ← Golden-set curation for the extraction-accuracy eval
+├── evals/golden_set.json       ← Golden set for `make eval-golden` (real API calls — confirm cost first)
+├── eval_golden_set.py          ← Golden-set extraction-accuracy eval
+├── smoke_test.py               ← 3-call smoke test (`make run`)
+├── retroactive_dq_audit.py     ← Re-apply the Data Quality Gate to existing outputs
 ├── api/main.py                 ← FastAPI wrapper (/health, /summary, /analyze)
 ├── prompts/system_prompt.txt   ← 70-field extraction schema + CoT instructions
 │
@@ -364,6 +374,7 @@ telecom-call-intelligence/
 ├── merge_outputs.py            ← Merge batch JSONs into combined dataset
 ├── qa_audit.py                 ← Standalone QA scoring tool
 │
+├── .github/                    ← CI workflow, CODEOWNERS, issue/PR templates, dependabot.yml
 ├── pyproject.toml              ← ruff, mypy, pytest configuration
 ├── Makefile                    ← Developer shortcuts
 ├── CLAUDE.md                   ← AI assistant guide
@@ -419,6 +430,7 @@ The 7-node architecture is designed for this. Only `data_agent.py` changes when 
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — Multi-agent design, agentic control loops, decision traceability, security layer, state schema
 - [`docs/engineering-standards.md`](docs/engineering-standards.md) — Testing, CI gates, dependency pinning, token-economics/retry policy, and known gaps
+- [`docs/runbooks/`](docs/runbooks/) — Operational procedures for halts, provider outages, and quality-gate failures
 - [`demo/`](demo/) — cci.ai landing page, architecture page, and mock-safe demo server
 - [`SECURITY.md`](SECURITY.md) — Threat model, PII handling, API key security, vulnerability disclosure
 - [`CHANGELOG.md`](CHANGELOG.md) — Full version history

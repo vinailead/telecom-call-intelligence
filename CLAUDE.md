@@ -48,7 +48,9 @@ Key files:
 - `pipeline/tracing.py` — Langfuse LLM observability (opt-in via `LANGFUSE_PUBLIC_KEY`/`LANGFUSE_SECRET_KEY`); one trace per `call_id` for extraction+gap-fill, one per run for insights; redacts raw transcript content before export
 - `pipeline/circuit_breaker.py` — shared provider-unavailability breaker (Gemini quota exhaustion, NVIDIA timeout)
 - `pipeline/drift.py` — `DriftGuard`, cross-run KPI drift detection against `AgentMemory`'s history; wired into `ExportAgent`, detection/reporting only
+- `pipeline/metrics.py` — read-only run-health summary (`python -m pipeline.metrics`) derived from `run_manifest_*.json`; no output file of its own
 - `pipeline/agents/` — one file per agent
+- `docs/runbooks/` — operational procedures; written against the strict halt policy (no auto-retry)
 
 ---
 
