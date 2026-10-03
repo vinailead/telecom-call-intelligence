@@ -13,7 +13,7 @@ This policy covers the Telecom Call Intelligence pipeline and its supporting inf
 | `ANTHROPIC_API_KEY` | Stored in `.env` only — never logged, never committed, `SecretGuard` redacts `sk-ant-*` patterns from all LLM outputs, state serialisation, and log messages |
 | `GEMINI_API_KEY` | Stored in `.env` only — `SecretGuard` redacts `AIza*` patterns from all outputs and logs |
 | `NVIDIA_API_KEY` | Stored in `.env` only — `SecretGuard` redacts `nvapi-*` patterns; also caught by env-var pattern guard |
-| Call transcript text | Scanned by `PIIScanner` before any LLM call; 6 PII pattern types detected and redacted to `[REDACTED]`; never stored in decision log evidence fields |
+| Call transcript text | **Batch pipeline** (`run_pipeline.py` / `run_batches.py`, the path that produces `outputs/summary.json`): scanned by `PIIScanner` in `DataIngestionAgent` before any LLM call; 6 PII pattern types redacted to `[REDACTED]`; never stored in decision log evidence fields. **Standalone `api/main.py` and `demo/app.py`:** `InputSanitizer`/`OutputSanitizer` only — **no `PIIScanner`, no authentication, no rate limiting**; do not send sensitive transcripts to them |
 | `outputs/agent_memory.json` | Contains aggregated KPIs and run history only — no raw transcripts or PII |
 | `outputs/decisions_{ts}.json` | Agent reasoning records — evidence fields contain only scores/counts/flags, never transcript text |
 | `outputs/audit_log_{ts}.json` | Agent events and governance decisions — no transcript text |
@@ -23,7 +23,7 @@ This policy covers the Telecom Call Intelligence pipeline and its supporting inf
 
 ## PII Protection
 
-The `PIIScanner` in `pipeline/governance.py` runs on every transcript **before** it is sent to any LLM. Patterns detected and redacted:
+The `PIIScanner` in `pipeline/governance.py` runs on every transcript in the **batch pipeline** (`DataIngestionAgent`) **before** it is sent to any LLM. It is **not** called by the standalone `api/main.py` or `demo/app.py` servers, which apply the input/output sanitizers only and have no authentication or rate limiting. Patterns detected and redacted:
 
 - US phone numbers (`phone_us`)
 - Social security numbers (`ssn`)
@@ -62,7 +62,7 @@ The telecom corpus (`talkmap/telecom-conversation-corpus`) is synthetic and anon
 | API key leakage via git | `.gitignore`, pre-commit `detect-private-key`, GitHub secret scanning, `SecretGuard` patterns for Anthropic + Google + OpenAI + NVIDIA + JWT + Bearer |
 | Prompt injection in transcript data | `InputSanitizer`: 10 regex patterns covering DAN mode, jailbreak, XML role injection, Llama template injection, instruction override; neutralise to `[FILTERED]` (not reject — prevents DoS from single bad record) |
 | Token bomb (DoS via oversized input) | `InputSanitizer`: hard cap at 50,000 chars; truncate with `[TRUNCATED-SECURITY]` marker |
-| PII in LLM prompts | `PIIScanner` redacts before every API call; `AuditLog` records detections |
+| PII in LLM prompts | Batch pipeline: `PIIScanner` redacts before every API call; `AuditLog` records detections. Standalone API/demo servers: not covered (sanitizers only) |
 | Code execution via LLM output | `OutputSanitizer`: `__import__`, `eval`, `exec`, `subprocess`, XSS patterns → `[CONTENT_FILTERED]` |
 | Secret leakage via LLM output | `SecretGuard.assert_no_secrets_in_output()` on every raw LLM response |
 | Cross-agent tool hijacking | `AgentScopeGuard`: per-agent authorised tool set; violation raises `SecurityViolation` before invocation |

@@ -33,7 +33,7 @@ This system is a direct implementation of Anthropic's Agentic AI framework: **ag
 | **Chain-of-Thought** | `_cot_reasoning` as the mandatory first JSON field forces structured reasoning before every extraction and recommendation |
 | **Long-term memory** | Flat JSON run history + Gemini-embedded semantic vector store; top-K similar historical runs injected into InsightsAgent context |
 | **Decision traceability** | `DecisionLogger` captures WHY every autonomous decision was made — routing choices, exclusions, provider selections, gap-fills — all serialised to `decisions_{ts}.json` |
-| **Human-in-the-loop** | Configurable approval gate before export; auto-approves in CI, interactive prompt with timeout in production |
+| **Human-in-the-loop** | Optional approval gate before export — **off by default** (`REQUIRE_HUMAN_APPROVAL = False`). When enabled it prompts the operator, but auto-approves on timeout or in non-interactive environments, so it is a checkpoint, not a guaranteed sign-off |
 | **Defence in depth** | `InputSanitizer`, `OutputSanitizer`, `AgentScopeGuard`, `SecretGuard`, `RateLimiter` — protecting every agent boundary |
 | **Graceful degradation** | Every component has a fallback path; the pipeline always completes with a full audit trail |
 
@@ -80,7 +80,7 @@ Local CSV (telecom_200k.csv — primary) · HuggingFace stream (fallback, 3.7M t
 │  ┌─────────────────────┐    ┌─────────────────────────┐                  │
 │  │  Approval Gate      │───▶│  Export Agent  (7/7)    │                  │
 │  │  (6/7)              │    │  CSV · JSON · decisions │                  │
-│  │  human sign-off     │    │  manifest · audit log   │                  │
+│  │  optional sign-off  │    │  manifest · audit log   │                  │
 │  │  auto-approve CI    │    │  decision log           │                  │
 │  └─────────────────────┘    └──────────┬──────────────┘                  │
 └──────────────────────────────────────── │ ─────────────────────────────  ┘
@@ -115,7 +115,7 @@ Every component exists because production autonomous systems need it.
 | **Plug-and-play model architecture** | `EXTRACTION_MODEL` in `config.py` drives everything — rate limiters, API clients, cost estimates, provider labels — one change, zero regressions | Switch from Claude to Gemini or any future model without touching agent code |
 | **Semantic long-term memory** | Gemini `text-embedding-004` embeds each run's KPI summary; numpy cosine similarity retrieves top-K most similar historical runs | Agents learn from history — InsightsAgent receives relevant context, not just averages |
 | **Multi-layer security** | `InputSanitizer` (injection + PII), `OutputSanitizer` (code execution + secrets), `AgentScopeGuard` (tool access), `SecretGuard`, `RateLimiter` | Prompt injection, cross-agent tool hijacking, secret exfiltration, response bombs — all blocked before they reach downstream agents |
-| **Human approval gate** | Configurable checkpoint before export: interactive in production, auto-approve in CI | Autonomous systems need human oversight options; this is where operators review KPIs before outputs are written |
+| **Optional approval gate** | Checkpoint before export, off by default; when on, auto-approves on timeout or non-interactive environments | Autonomous systems need a seam for human oversight; this is where an operator can review KPIs before outputs are written |
 | **Governance layer** | `BudgetGuard` (reads `BUDGET_USD` from config), `QualityGate`, `PIIScanner`, `AuditLog` | Cost caps, quality thresholds, PII compliance, and event traceability — without manual intervention |
 | **LangSmith tracing** | One env var (`LANGCHAIN_TRACING_V2=true`) enables full node-level span capture | End-to-end observability across all 7 pipeline nodes and every LLM provider |
 | **Dynamic routing** | LangGraph conditional edge after QualityAgent | Catastrophic extraction failure routes to safe export; the pipeline never silently fails |
@@ -174,7 +174,7 @@ They're kept separate on purpose. A 100-pt QA score only tells you the extractio
 
 **This is the project's success criterion, stated plainly:** of every call this pipeline has processed, **172 pass every QA and data-integrity check — that's the number the product stands behind.** The other 45 don't get silently averaged in; each is excluded with one of three specific, logged reasons. That's not a defect to explain away — it's what strict validation looks like when it's actually enforced in code instead of asserted in a slide. The failure modes below are exactly the constraints any team will hit processing real, messy transcripts at volume; naming them here is what lets an enterprise buyer plan mitigations *before* they show up in a production AHT number, not after.
 
-**Real numbers, across every batch run to date** (live from `outputs/summary.json`, not a cherry-picked example):
+**Real numbers, across every batch run to date** (source: `outputs/summary.json`, the aggregate the dashboard reads — built by `merge_outputs.py` from the 217 merged records in `outputs/full_results_combined_20260809_175823.json`, 18 batch files listed in `merge_manifest_20260809_175823.json`; the per-call run files are gitignored and not published in this repo):
 
 | | |
 |---|---|
@@ -258,7 +258,7 @@ make clean         # remove __pycache__, .pyc, pytest cache
 | **Decision traceability** | `decision_log.py`, all agents | Structured WHY records for every autonomous decision, with evidence and alternatives |
 | **Semantic long-term memory** | `vector_memory.py` | Gemini-embedded KPI histories with cosine similarity retrieval |
 | **Tool access control** | `security.py` | `AgentScopeGuard` enforces per-agent authorised tool sets |
-| **Human-in-the-loop** | `graph.py` | Configurable approval gate before any outputs are written to disk |
+| **Human-in-the-loop (optional)** | `graph.py` | Approval gate before outputs are written; off by default, auto-approves on timeout/non-interactive |
 | **Distributed tracing** | `graph.py` | LangSmith integration via `LANGCHAIN_TRACING_V2` — full span capture |
 | **Plug-and-play providers** | `config.py`, `analyzer.py`, `token_tracker.py` | Single `EXTRACTION_MODEL` config value drives all downstream provider logic |
 
@@ -413,6 +413,7 @@ The 7-node architecture is designed for this. Only `data_agent.py` changes when 
 **cci.ai** is the market-facing name and public surface of this pipeline: an enterprise-CX positioning ("Interaction Cost Intelligence"), a landing page, an architecture page, and an interactive demo. It lives in [`demo/`](demo/) and is the same pipeline underneath — no separate codebase.
 
 - `demo/app.py` — standalone FastAPI server: serves the pages and a single `/analyze` endpoint. Real Claude Haiku extraction when an API key is present; falls back to pre-computed results for the 3 bundled sample transcripts.
+- **Not a source of metrics or privacy claims.** Every figure in these docs traces to `outputs/summary.json` and the combined run data. The demo and `api/main.py` use input/output sanitizers only — no `PIIScanner`, authentication, or rate limiting — so don't send them sensitive transcripts.
 - `render.yaml` — Render blueprint (`cci-ai-demo`) for the hosted demo. It sets `DEMO_MOCK_ONLY=1`, so the hosted instance **never calls an LLM or spends API credit**.
 - Run locally: `uvicorn demo.app:app --port 8001 --reload` → http://localhost:8001
 
