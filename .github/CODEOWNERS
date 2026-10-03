@@ -1,0 +1,27 @@
+# Default owners for all files
+* @vindon
+
+# Core pipeline and runtime logic
+/pipeline/ @vindon
+/run_pipeline.py @vindon
+/run_batches.py @vindon
+/merge_outputs.py @vindon
+/qa_audit.py @vindon
+
+# Dashboard and demo apps
+/dashboard/ @vindon
+/demo/ @vindon
+/api/ @vindon
+
+# Security and repository governance
+/.github/ @vindon
+/SECURITY.md @vindon
+
+# Documentation and architecture
+/README.md @vindon
+/ARCHITECTURE.md @vindon
+/CLAUDE.md @vindon
+/CHANGELOG.md @vindon
+
+# Tests
+/tests/ @vindon
