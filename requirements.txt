@@ -15,7 +15,7 @@ anthropic>=0.40.0
 
 # LangGraph orchestration + LangSmith tracing
 langgraph>=0.2.0
-langchain-core>=0.3.0
+langchain-core>=0.3.86
 langsmith>=0.1.0
 
 # Langfuse observability (pipeline/tracing.py) — optional, no-op without
