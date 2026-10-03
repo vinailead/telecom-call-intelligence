@@ -23,7 +23,7 @@ langsmith>=0.1.0
 # and Gemini (google-genai); NVIDIA NIM is covered by langfuse's own
 # OpenAI-SDK wrapper (no extra package — see llm_clients.get_nvidia_client()).
 langfuse>=3.0.0
-opentelemetry-instrumentation-anthropic>=0.40.0
+opentelemetry-instrumentation-anthropic>=0.62.4
 openinference-instrumentation-google-genai>=0.1.0
 
 # HuggingFace dataset loading
