@@ -162,15 +162,34 @@ def quality_node(state: PipelineState) -> dict:
         )
     if not gate_ok:
         print("  ⚠ Quality gate FAILED — routing to emergency export")
-    return result
+    return {**result, "decision_log": _log_quality_routing(result)}
+
+
+def _quality_destination(qa_report: dict) -> str:
+    return "export" if qa_report.get("_quality_gate_failed", False) else "aggregate"
 
 
 def _route_after_quality(state: PipelineState) -> str:
-    """Dynamic routing: skip to export if quality gate tripped."""
-    gate_failed = state.get("qa_report", {}).get("_quality_gate_failed", False)
-    destination = "export" if gate_failed else "aggregate"
+    """Dynamic routing: skip to export if quality gate tripped.
 
-    dl = DecisionLogger("GraphRouter", dict(state))
+    Pure on purpose: LangGraph discards state changes made in conditional-edge
+    functions, so the routing decision is recorded by quality_node instead.
+    """
+    destination = _quality_destination(state.get("qa_report", {}))
+    if destination == "export":
+        log.warning(
+            "Quality gate failed — routing directly to export (skipping aggregate/insights)"
+        )
+    return destination
+
+
+def _log_quality_routing(result: dict) -> list[dict]:
+    """Append the quality→{aggregate,export} routing decision to the decision log."""
+    qa_report = result.get("qa_report", {})
+    destination = _quality_destination(qa_report)
+    gate_failed = destination == "export"
+
+    dl = DecisionLogger("GraphRouter", result)
     dl.log(
         decision_type="routing_decision",
         decision=f"Route quality → {destination}",
@@ -181,21 +200,13 @@ def _route_after_quality(state: PipelineState) -> str:
         ),
         evidence={
             "quality_gate_failed": gate_failed,
-            "qa_verdict": state.get("qa_report", {}).get("dataset_verdict", "N/A"),
+            "qa_verdict": qa_report.get("dataset_verdict", "N/A"),
             "destination": destination,
         },
         confidence="high",
         alternatives=["aggregate"] if gate_failed else ["export (emergency)"],
     )
-    # Merge decision log back — state is read-only in conditional edges
-    # (LangGraph doesn't persist state mutations from conditional edge functions,
-    # so we log here for observability but the record is captured in export_node
-    # via the accumulated decision_log in state from upstream agents)
-    if gate_failed:
-        log.warning(
-            "Quality gate failed — routing directly to export (skipping aggregate/insights)"
-        )
-    return destination
+    return dl.finalize()
 
 
 def aggregate_node(state: PipelineState) -> dict:

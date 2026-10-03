@@ -58,7 +58,7 @@ Key files:
 
 ```bash
 make install-dev    # install all deps (prod + dev)
-make test           # run 518-test suite
+make test           # run 522-test suite
 make test-fast      # skip @slow and @integration tests
 make lint           # ruff linter
 make check          # lint + type-check + test (full gate)
@@ -136,11 +136,11 @@ Use the `new-agent` skill (`.claude/skills/new-agent`) — it scaffolds the file
 ## Running Tests
 
 ```bash
-.venv/bin/python -m pytest tests/ -v              # all 518 tests
+.venv/bin/python -m pytest tests/ -v              # all 522 tests
 .venv/bin/python -m pytest tests/ -m "not slow"   # skip API tests
 ```
 
-Expected: **518 passed** in < 7 seconds. If a test fails, check whether `config.py` constants changed or a governance threshold was adjusted.
+Expected: **522 passed** in < 7 seconds. If a test fails, check whether `config.py` constants changed or a governance threshold was adjusted.
 
 ---
 
