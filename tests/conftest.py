@@ -2,13 +2,44 @@
 Shared pytest fixtures for the Telecom Call Intelligence test suite.
 """
 
+import atexit
 import os
+import shutil
+import tempfile
+from pathlib import Path
 
 import pytest
 
 # Ensure GEMINI_API_KEY is set for import-time checks in pipeline modules.
 # Tests that make real API calls are marked @pytest.mark.slow and skipped in CI.
 os.environ.setdefault("GEMINI_API_KEY", "test-key-ci-dummy")
+
+# Point the pipeline log at a throwaway directory. This must run here, at conftest
+# import time: pipeline.logger opens its file handler on the first get_logger() call
+# (any module-level `log = get_logger(...)`), and reads _LOG_DIR/_LOG_FILE at that
+# moment. Left alone, every test run appended ~100KB of test noise to the real
+# outputs/pipeline.log, which the runbooks tell operators to read after a failure.
+import pipeline.logger as _pipeline_logger  # noqa: E402
+
+_TEST_LOG_DIR = Path(tempfile.mkdtemp(prefix="cci-test-logs-"))
+_pipeline_logger._LOG_DIR = _TEST_LOG_DIR
+_pipeline_logger._LOG_FILE = _TEST_LOG_DIR / "pipeline.log"
+atexit.register(shutil.rmtree, _TEST_LOG_DIR, ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_global_agent_memory(tmp_path, monkeypatch):
+    """Back the process-wide MEMORY singleton with a per-test temp file.
+
+    Orchestrator._update_memory and several agents mutate and save() the global
+    MEMORY; without this, a normal test run rewrote the real outputs/agent_memory.json
+    (adding fake quota_events). Every module imports the same object, so patching its
+    attributes isolates all of them at once.
+    """
+    from pipeline.memory import MEMORY
+
+    monkeypatch.setattr(MEMORY, "path", tmp_path / "agent_memory.json")
+    monkeypatch.setattr(MEMORY, "_data", MEMORY._empty())
 
 
 @pytest.fixture
