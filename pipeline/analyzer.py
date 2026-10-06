@@ -53,6 +53,7 @@ from pipeline.security import (
     INPUT_SANITIZER,
     OUTPUT_SANITIZER,
     SECRET_GUARD,
+    SecurityViolation,
 )
 from pipeline.tracing import call_trace_id, traced_span
 
@@ -94,7 +95,7 @@ def _build_user_message(transcript: dict) -> str:
         f"Call ID: {transcript['call_id']}\n"
         "Agent ID: null\n"
         "Customer ID: null\n"
-        f"Call Date: {transcript['call_date']}\n"
+        f"Call Date: {transcript.get('call_date') or 'unknown'}\n"
         "Queue: unknown\n"
         "Channel: voice\n\n"
         "---\n\n"
@@ -337,6 +338,20 @@ def analyze_transcript(
                     span.update(output={"error": "json_decode_error", "attempts": max_retries})
                     return None
                 time.sleep(2)
+
+            except SecurityViolation as exc:
+                # Deterministic: the guard rejects what the model returned, and a retry
+                # re-sends the same transcript and re-bills for the same kind of reply.
+                # The message is a fixed string (no secret content), so it is safe to log.
+                log.error(
+                    "Security violation [%s] attempt %d/%d — not retrying: %s",
+                    call_id_short,
+                    attempt + 1,
+                    max_retries,
+                    exc,
+                )
+                span.update(output={"error": "security_violation", "check": exc.check})
+                return None
 
             except Exception as exc:
                 exc_str = str(exc)

@@ -58,6 +58,10 @@ class TestParseJsonText:
 
 
 class TestPromptBuilders:
+    def test_missing_call_date_renders_placeholder(self):
+        msg = _build_user_message({"call_id": "c1", "transcript_text": "AGENT: hi"})
+        assert "Call Date: unknown" in msg
+
     def test_user_message_contains_metadata_and_transcript(self, make_transcript):
         t = make_transcript(call_id="conv-42")
         msg = _build_user_message(t)
@@ -179,6 +183,65 @@ class TestAnalyzeTranscript:
         monkeypatch.setattr(analyzer, "_USE_CLAUDE", True)
         monkeypatch.setattr(analyzer, "_call_claude", boom)
         assert analyze_transcript(None, "sp", make_transcript(), max_retries=2) is None
+
+    def test_transient_api_error_is_still_retried_up_to_max_retries(
+        self, monkeypatch, make_transcript
+    ):
+        calls = []
+
+        def boom(client, sp, msg, max_tokens):
+            calls.append(1)
+            raise RuntimeError("connection reset")
+
+        monkeypatch.setattr(analyzer, "_USE_CLAUDE", True)
+        monkeypatch.setattr(analyzer, "_call_claude", boom)
+        assert analyze_transcript(None, "sp", make_transcript(), max_retries=3) is None
+        assert len(calls) == 3
+
+    @pytest.mark.parametrize(
+        "response_text",
+        [
+            '{"note": "sk-ant-api03-' + "A" * 40 + '"}',  # secret_in_output
+            "x" * (analyzer.MAX_RESPONSE_BYTES + 1),  # response_size
+        ],
+        ids=["secret_in_output", "oversized_response"],
+    )
+    def test_security_violation_is_not_retried(self, monkeypatch, make_transcript, response_text):
+        # Regression: SecurityViolation was swallowed by the generic `except Exception`
+        # and retried, re-billing the provider for a response that is deterministically
+        # rejected. One call, then give up.
+        calls = []
+
+        def respond(client, sp, msg, max_tokens):
+            calls.append(1)
+            return (response_text, 10, 10, 0, 0)
+
+        monkeypatch.setattr(analyzer, "_USE_CLAUDE", True)
+        monkeypatch.setattr(analyzer, "_call_claude", respond)
+        assert analyze_transcript(None, "sp", make_transcript(), max_retries=3) is None
+        assert len(calls) == 1
+
+    def test_transcript_without_call_date_is_analyzed(
+        self, monkeypatch, make_transcript, make_record
+    ):
+        # Regression: _build_user_message read transcript['call_date'] directly; the KeyError
+        # was swallowed by the retry loop and surfaced as a quota-style failure with zero
+        # provider calls. call_date is optional in api/main.py's request schema.
+        payload = {k: v for k, v in make_record().items() if not k.startswith("_")}
+        sent = []
+
+        def respond(client, sp, msg, max_tokens):
+            sent.append(msg)
+            return (json.dumps(payload), 10, 10, 0, 0)
+
+        transcript = make_transcript()
+        del transcript["call_date"]
+        monkeypatch.setattr(analyzer, "_USE_CLAUDE", True)
+        monkeypatch.setattr(analyzer, "_call_claude", respond)
+        result = analyze_transcript(None, "sp", transcript)
+        assert result is not None
+        assert len(sent) == 1
+        assert "Call Date: unknown" in sent[0]
 
     def test_gemini_success_injects_token_accounting(
         self, monkeypatch, make_transcript, make_record
