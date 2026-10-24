@@ -10,8 +10,10 @@ attrs==26.1.0
     # via
     #   jsonschema
     #   referencing
-certifi==2026.7.22
-    # via requests
+certifi==2026.10.23
+    # via
+    #   -r requirements-dashboard.txt
+    #   requests
 charset-normalizer==3.5.1
     # via requests
 click==8.5.0
@@ -20,8 +22,6 @@ click==8.5.0
     #   uvicorn
 h11==0.16.0
     # via uvicorn
-httptools==0.8.0
-    # via streamlit
 idna==3.20
     # via
     #   anyio
@@ -59,8 +59,10 @@ packaging==26.3
     #   streamlit
 pandas==3.0.6
     # via streamlit
-pillow==12.3.0
-    # via streamlit
+pillow==13.0.0
+    # via
+    #   -r requirements-dashboard.txt
+    #   streamlit
 plotly==7.1.0
     # via -r requirements-dashboard.txt
 protobuf==7.36.2
@@ -87,10 +89,8 @@ six==1.17.0
     # via python-dateutil
 starlette==1.7.0
     # via streamlit
-streamlit==1.64.0
+streamlit==1.66.1
     # via -r requirements-dashboard.txt
-toml==0.10.2
-    # via streamlit
 typing-extensions==4.16.0
     # via
     #   altair
