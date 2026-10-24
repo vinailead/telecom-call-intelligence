@@ -2,8 +2,10 @@
 #    uv pip compile requirements.txt -o requirements.lock --universal --python-version 3.11
 aiohappyeyeballs==2.7.1
     # via aiohttp
-aiohttp==3.14.3
-    # via fsspec
+aiohttp==3.14.5
+    # via
+    #   -r requirements.txt
+    #   fsspec
 aiosignal==1.4.0
     # via aiohttp
 altair==6.3.0
@@ -32,8 +34,9 @@ attrs==26.1.0
     #   referencing
 backoff==2.2.1
     # via langfuse
-certifi==2026.7.22
+certifi==2026.10.23
     # via
+    #   -r requirements.txt
     #   httpcore
     #   httpx
     #   requests
@@ -64,8 +67,9 @@ docstring-parser==0.18.0
     # via anthropic
 fastapi==0.141.1
     # via -r requirements.txt
-filelock==4.0.3
+filelock==4.2.4
     # via
+    #   -r requirements.txt
     #   datasets
     #   huggingface-hub
 frozenlist==1.8.0
@@ -94,9 +98,7 @@ httpcore==1.0.9
 httpcore2==2.13.1 ; sys_platform != 'emscripten'
     # via httpx2
 httptools==0.8.0
-    # via
-    #   streamlit
-    #   uvicorn
+    # via uvicorn
 httpx==0.28.1
     # via
     #   datasets
@@ -204,37 +206,44 @@ openinference-semantic-conventions==0.1.39
     # via
     #   openinference-instrumentation
     #   openinference-instrumentation-google-genai
-opentelemetry-api==1.44.0
+opentelemetry-api==1.45.1
     # via
+    #   -r requirements.txt
     #   langfuse
     #   openinference-instrumentation
     #   openinference-instrumentation-google-genai
+    #   opentelemetry-exporter-http-transport
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-anthropic
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-exporter-otlp-proto-common==1.44.0
+opentelemetry-exporter-http-transport==0.66b1
     # via opentelemetry-exporter-otlp-proto-http
-opentelemetry-exporter-otlp-proto-http==1.44.0
+opentelemetry-exporter-otlp-common==0.66b1
+    # via opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-common==1.45.1
+    # via opentelemetry-exporter-otlp-proto-http
+opentelemetry-exporter-otlp-proto-http==1.45.1
     # via langfuse
-opentelemetry-instrumentation==0.65b0
+opentelemetry-instrumentation==0.66b1
     # via
     #   openinference-instrumentation-google-genai
     #   opentelemetry-instrumentation-anthropic
 opentelemetry-instrumentation-anthropic==0.62.4
     # via -r requirements.txt
-opentelemetry-proto==1.44.0
+opentelemetry-proto==1.45.1
     # via
     #   opentelemetry-exporter-otlp-proto-common
     #   opentelemetry-exporter-otlp-proto-http
-opentelemetry-sdk==1.44.0
+opentelemetry-sdk==1.45.1
     # via
     #   langfuse
     #   openinference-instrumentation
+    #   opentelemetry-exporter-otlp-common
     #   opentelemetry-exporter-otlp-proto-http
     #   opentelemetry-semantic-conventions-ai
-opentelemetry-semantic-conventions==0.65b0
+opentelemetry-semantic-conventions==0.66b1
     # via
     #   openinference-instrumentation-google-genai
     #   opentelemetry-instrumentation
@@ -265,8 +274,10 @@ pandas==3.0.6
     #   -r requirements.txt
     #   datasets
     #   streamlit
-pillow==12.3.0
-    # via streamlit
+pillow==13.0.0
+    # via
+    #   -r requirements.txt
+    #   streamlit
 plotly==7.1.0
     # via -r requirements.txt
 propcache==0.5.4
@@ -326,6 +337,7 @@ requests==2.34.2
     #   google-auth
     #   google-genai
     #   langsmith
+    #   opentelemetry-exporter-http-transport
     #   opentelemetry-exporter-otlp-proto-http
     #   requests-toolbelt
     #   streamlit
@@ -347,14 +359,12 @@ starlette==1.7.0
     # via
     #   fastapi
     #   streamlit
-streamlit==1.64.0
+streamlit==1.66.1
     # via -r requirements.txt
 tenacity==9.1.4
     # via
     #   google-genai
     #   langchain-core
-toml==0.10.2
-    # via streamlit
 tqdm==4.70.1
     # via
     #   -r requirements.txt

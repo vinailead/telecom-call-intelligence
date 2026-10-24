@@ -3,3 +3,7 @@
 # Full pipeline requirements are in requirements.txt
 streamlit>=1.64.0
 plotly>=7.1.0
+
+# Security floors for transitive dependencies (OSV advisories, 2026-10-24).
+certifi>=2026.10.19
+pillow>=13.0.0

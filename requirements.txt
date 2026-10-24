@@ -45,3 +45,12 @@ uvicorn[standard]>=0.30.0
 # Utilities
 python-dotenv>=1.0.0
 tqdm>=4.66.0
+
+# Security floors for transitive dependencies (OSV advisories, 2026-10-24).
+# certifi: compromised emSign intermediate CAs (GHSA-6q48-6c7w-9gw2)
+# pillow (via streamlit): heap overflows / RCE (fixed in 13.0.0)
+certifi>=2026.10.19
+pillow>=13.0.0
+aiohttp>=3.14.4
+filelock>=4.2.1
+opentelemetry-api>=1.45.1
