@@ -1836,7 +1836,7 @@ def main():
             st.markdown(f"<div style='margin-bottom:8px;'>{chips}</div>", unsafe_allow_html=True)
             if ic_clean:
                 st.plotly_chart(
-                    chart_issue_mix(ic_clean, n_calls), use_container_width=True, key="issue_mix"
+                    chart_issue_mix(ic_clean, n_calls), width="stretch", key="issue_mix"
                 )
 
         with col_phase:
@@ -1858,7 +1858,7 @@ def main():
                     )
             st.markdown(f"<div style='margin-bottom:8px;'>{chips}</div>", unsafe_allow_html=True)
             if phases:
-                st.plotly_chart(chart_phases(phases), use_container_width=True, key="phase_time")
+                st.plotly_chart(chart_phases(phases), width="stretch", key="phase_time")
 
         disc_pct_str = f"{disc_secs / total_secs * 100:.0f}%"
         diag_pct_str = f"{diag_secs / total_secs * 100:.0f}%"
@@ -2055,7 +2055,7 @@ def main():
                     )
                     st.plotly_chart(
                         chart_drilldown_intents(rows, color),
-                        use_container_width=True,
+                        width="stretch",
                         key=f"dd_{_dd_phase}",
                     )
         else:
@@ -2247,9 +2247,7 @@ def main():
         seg_bar_data.append(("Human Agent Required", human_pct, BLUE))
 
         st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
-        st.plotly_chart(
-            chart_segment_bar(seg_bar_data), use_container_width=True, key="segment_bar"
-        )
+        st.plotly_chart(chart_segment_bar(seg_bar_data), width="stretch", key="segment_bar")
 
         st.markdown(
             f"""
@@ -2699,7 +2697,7 @@ def main():
                 )
                 st.plotly_chart(
                     chart_dq_failure_breakdown(breakdown),
-                    use_container_width=True,
+                    width="stretch",
                     key="dq_breakdown",
                 )
                 st.markdown(
