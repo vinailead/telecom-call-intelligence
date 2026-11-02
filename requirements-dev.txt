@@ -18,4 +18,4 @@ pre-commit>=4.6.2
 
 # Security floors for transitive dependencies (OSV advisories, 2026-10-24).
 filelock>=4.2.1
-virtualenv>=21.14.9
+virtualenv>=21.15.1
