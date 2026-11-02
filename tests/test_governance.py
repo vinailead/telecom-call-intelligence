@@ -138,6 +138,12 @@ class TestQualityGate:
                 self._report_with_dq(pass_rate_pct=10.0, dq_pass_rate_pct=5.0, verdict="FAIL")
             )
         assert "QA pass rate" in str(exc_info.value)
+
+        # Disjoint failures: 50% QA pass + 50% DQ pass but 0% combined intersection
+        disjoint = self._report_with_dq(pass_rate_pct=50.0, dq_pass_rate_pct=50.0)
+        disjoint["summary"]["combined_pass_rate_pct"] = 0.0
+        with pytest.raises(QualityGate.QualityGateError, match="combined QA\\+DQ pass rate"):
+            gate.check(disjoint)
         assert "data quality pass rate" in str(exc_info.value)
 
 

@@ -172,6 +172,8 @@ class QualityAgent:
         # data-quality-gate-passed to aggregation.
         passed = [r for r in scored_results if r["_qa_grade"] != "LOW" and r["_dq_gate_passed"]]
         low_count = len(scored_results) - sum(1 for r in scored_results if r["_qa_grade"] != "LOW")
+        combined_pass_rate = round(len(passed) / n * 100, 1) if n else 100.0
+        report["summary"]["combined_pass_rate_pct"] = combined_pass_rate
 
         verdict = report["dataset_verdict"]
         summary = report["summary"]

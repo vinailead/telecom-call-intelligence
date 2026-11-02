@@ -34,10 +34,23 @@ class AggregationAgent:
     def run(self, state: dict) -> dict:
         dl = DecisionLogger(self.name, state)
 
-        # Prefer QA-filtered results; fall back to full set if QA was skipped
+        # Prefer QA-filtered results; fall back to full set ONLY if QA was genuinely
+        # skipped (no qa_passed_results, no qa_report, and records carry no QA/DQ tags).
+        # If QualityAgent ran and rejected every record (qa_passed_results == []),
+        # never fall back to aggregating the rejected analysis_results.
         qa_passed = state.get("qa_passed_results")
-        results = qa_passed or state["analysis_results"]
-        used_qa_filtered = bool(qa_passed)
+        raw_results = state.get("analysis_results", [])
+        qa_was_run = (
+            bool(qa_passed)
+            or bool(state.get("qa_report"))
+            or any("_qa_grade" in r or "_dq_gate_passed" in r for r in raw_results)
+        )
+        if qa_was_run:
+            results = qa_passed or []
+            used_qa_filtered = True
+        else:
+            results = raw_results
+            used_qa_filtered = False
 
         if not results:
             raise RuntimeError(

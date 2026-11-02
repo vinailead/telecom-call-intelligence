@@ -126,6 +126,7 @@ class QualityGate:
         dq_pass_rate_pct = summary.get(
             "data_quality_pass_rate_pct"
         )  # None if caller predates this check
+        combined_pass_rate_pct = summary.get("combined_pass_rate_pct")
 
         log.info(
             "[QualityGate] pass_rate=%.1f%%  avg_score=%.1f  n=%d  threshold=%.0f%%%s",
@@ -162,6 +163,10 @@ class QualityGate:
         if dq_pass_rate_pct is not None and dq_pass_rate_pct / 100 < self.min_pass_rate:
             failures.append(
                 f"data quality pass rate {dq_pass_rate_pct:.1f}% < minimum {self.min_pass_rate * 100:.0f}%"
+            )
+        if combined_pass_rate_pct is not None and combined_pass_rate_pct / 100 < self.min_pass_rate:
+            failures.append(
+                f"combined QA+DQ pass rate {combined_pass_rate_pct:.1f}% < minimum {self.min_pass_rate * 100:.0f}%"
             )
 
         if failures:

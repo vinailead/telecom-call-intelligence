@@ -38,9 +38,22 @@ class TestAggregationAgent:
         scope = [d for d in out["decision_log"] if d["decision_type"] == "aggregation_scope"]
         assert scope[0]["evidence"]["qa_filtered"] is False
 
-    def test_no_results_raises(self):
+    def test_no_results_raises(self, make_record):
         with pytest.raises(RuntimeError, match="No results"):
             AggregationAgent().run({"analysis_results": [], "qa_passed_results": []})
+
+        # Audit F1: when QualityAgent ran and rejected every record
+        # (qa_passed_results == []), AggregationAgent must NOT fall back to
+        # aggregating the rejected analysis_results.
+        rejected = [make_record(call_id="c1", _qa_grade="LOW", _dq_gate_passed=False)]
+        with pytest.raises(RuntimeError, match="No results"):
+            AggregationAgent().run(
+                {
+                    "analysis_results": rejected,
+                    "qa_passed_results": [],
+                    "qa_report": {"dataset_verdict": "FAIL"},
+                }
+            )
 
     def test_cost_model_decision_logged(self, make_record):
         out = AggregationAgent().run({"analysis_results": [make_record()]})
