@@ -44,7 +44,7 @@ uvicorn[standard]>=0.30.0
 
 # Utilities
 python-dotenv>=1.0.0
-tqdm>=4.66.0
+tqdm>=4.70.1
 
 # Security floors for transitive dependencies (OSV advisories, 2026-10-24).
 # certifi: compromised emSign intermediate CAs (GHSA-6q48-6c7w-9gw2)
