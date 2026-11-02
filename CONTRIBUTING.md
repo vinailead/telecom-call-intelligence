@@ -7,7 +7,7 @@ This is a proprietary project (Copyright © 2026 Vinoth N). Contributions are we
 ## Development Setup
 
 ```bash
-git clone https://github.com/vindon/telecom-call-intelligence.git
+git clone https://github.com/vinailead/telecom-call-intelligence.git
 cd telecom-call-intelligence
 python -m venv .venv && source .venv/bin/activate
 make install-dev          # installs prod + dev deps and pre-commit hooks
@@ -75,7 +75,7 @@ docs/architecture-update
 
 ## What to work on
 
-Check the [open issues](https://github.com/vindon/telecom-call-intelligence/issues) for the backlog. Issues tagged `good first issue` are a good starting point.
+Check the [open issues](https://github.com/vinailead/telecom-call-intelligence/issues) for the backlog. Issues tagged `good first issue` are a good starting point.
 
 If you want to propose a significant change, open an issue first to discuss the approach before writing code.
 
@@ -128,4 +128,4 @@ Include the QA score comparison (before/after) in the PR description.
 
 ## Questions
 
-Open a [GitHub Discussion](https://github.com/vindon/telecom-call-intelligence/discussions) for general questions. Use [Issues](https://github.com/vindon/telecom-call-intelligence/issues) for bugs and feature requests.
+Open a [GitHub Discussion](https://github.com/vinailead/telecom-call-intelligence/discussions) for general questions. Use [Issues](https://github.com/vinailead/telecom-call-intelligence/issues) for bugs and feature requests.

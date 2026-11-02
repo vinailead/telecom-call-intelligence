@@ -4,5 +4,5 @@ contact_links:
     url: mailto:vinoth.n@outlook.com
     about: Please report security issues privately instead of opening a public issue.
   - name: Project discussions
-    url: https://github.com/vindon/telecom-call-intelligence/discussions
+    url: https://github.com/vinailead/telecom-call-intelligence/discussions
     about: For product questions, architecture discussion, and non-security feedback.

@@ -1,27 +1,27 @@
 # Default owners for all files
-* @vindon
+* @vinailead
 
 # Core pipeline and runtime logic
-/pipeline/ @vindon
-/run_pipeline.py @vindon
-/run_batches.py @vindon
-/merge_outputs.py @vindon
-/qa_audit.py @vindon
+/pipeline/ @vinailead
+/run_pipeline.py @vinailead
+/run_batches.py @vinailead
+/merge_outputs.py @vinailead
+/qa_audit.py @vinailead
 
 # Dashboard and demo apps
-/dashboard/ @vindon
-/demo/ @vindon
-/api/ @vindon
+/dashboard/ @vinailead
+/demo/ @vinailead
+/api/ @vinailead
 
 # Security and repository governance
-/.github/ @vindon
-/SECURITY.md @vindon
+/.github/ @vinailead
+/SECURITY.md @vinailead
 
 # Documentation and architecture
-/README.md @vindon
-/ARCHITECTURE.md @vindon
-/CLAUDE.md @vindon
-/CHANGELOG.md @vindon
+/README.md @vinailead
+/ARCHITECTURE.md @vinailead
+/CLAUDE.md @vinailead
+/CHANGELOG.md @vinailead
 
 # Tests
-/tests/ @vindon
+/tests/ @vinailead
