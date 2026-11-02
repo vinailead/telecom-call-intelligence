@@ -83,15 +83,29 @@ class ExtractionAgent:
         # persist across run() invocations on the shared singleton.
         dl = DecisionLogger(self.name, state)
 
-        # ── Act: initial batch extraction ────────────────────────────
-        results = analyze_batch(
-            transcripts,
-            inter_call_delay=delay,
-            checkpoint_key=checkpoint_key,
-        )
+        results: list[dict] = []
+        try:
+            # ── Act: initial batch extraction ────────────────────────────
+            results = analyze_batch(
+                transcripts,
+                inter_call_delay=delay,
+                checkpoint_key=checkpoint_key,
+            )
 
-        # ── Observe + Reason + Act (ReAct gap-fill loop) ─────────────
-        results, react_stats = self._react_loop(results, transcripts, dl, checkpoint_key)
+            # ── Observe + Reason + Act (ReAct gap-fill loop) ─────────────
+            results, react_stats = self._react_loop(results, transcripts, dl, checkpoint_key)
+        except BUDGET_GUARD.BudgetExceededError as exc:
+            est_cost = self._compute_cumulative_cost(results)
+            AUDIT_LOG.record_governance(
+                check="budget",
+                passed=False,
+                details={
+                    "est_cost_usd": round(est_cost, 4),
+                    "limit_usd": BUDGET_GUARD.max_cost_usd,
+                },
+            )
+            AUDIT_LOG.record_error(self.name, str(exc))
+            raise
 
         # Merge ground-truth timestamp + truncation heuristic from the source
         # transcript onto each result — QualityAgent's data-quality gate
@@ -114,11 +128,7 @@ class ExtractionAgent:
         # Cache tokens must be passed separately: pricing them at the full input
         # rate (like a naive prompt_tokens sum would) overstates spend against
         # BudgetGuard by ignoring the ~90% discount a cache hit actually gets.
-        total_prompt = sum(r.get("_prompt_tokens", 0) for r in results)
-        total_out = sum(r.get("_completion_tokens", 0) for r in results)
-        total_cache_creation = sum(r.get("_cache_creation_tokens", 0) for r in results)
-        total_cache_read = sum(r.get("_cache_read_tokens", 0) for r in results)
-        est_cost = _cost_usd(total_prompt, total_out, total_cache_creation, total_cache_read)
+        est_cost = self._compute_cumulative_cost(results)
         try:
             BUDGET_GUARD.check(
                 est_cost, context=f"after {len(results)} calls (incl. ReAct retries)"
@@ -175,6 +185,19 @@ class ExtractionAgent:
             "react_stats": react_stats,
             "decision_log": dl.finalize(),
         }
+
+    @staticmethod
+    def _compute_cumulative_cost(results: list[dict]) -> float:
+        failed_toks = _analyzer_mod.get_failed_call_tokens()
+        total_prompt = sum(r.get("_prompt_tokens", 0) for r in results) + failed_toks["prompt"]
+        total_out = sum(r.get("_completion_tokens", 0) for r in results) + failed_toks["completion"]
+        total_cache_creation = (
+            sum(r.get("_cache_creation_tokens", 0) for r in results) + failed_toks["cache_creation"]
+        )
+        total_cache_read = (
+            sum(r.get("_cache_read_tokens", 0) for r in results) + failed_toks["cache_read"]
+        )
+        return _cost_usd(total_prompt, total_out, total_cache_creation, total_cache_read)
 
     def _react_loop(
         self,
@@ -259,12 +282,20 @@ class ExtractionAgent:
 
             # ── Act: gap-fill for up to REACT_MAX_ITERATIONS passes ──
             current = result
+            idx = len(improved_results)
             for iteration in range(REACT_MAX_ITERATIONS):
                 transcript = transcript_map[call_id]
                 improved = gap_fill_transcript(
                     client, system_prompt, transcript, current, session_id=checkpoint_key
                 )
                 n_gap_fills += 1
+
+                # In-loop budget guard inside ReAct gap-fill loop
+                running_records = improved_results + [improved] + results[idx + 1 :]
+                BUDGET_GUARD.check(
+                    self._compute_cumulative_cost(running_records),
+                    context=f"ReAct gap-fill {str(call_id)[:12]} iter {iteration + 1}",
+                )
 
                 new_coverage = score_field_coverage(improved)
                 if new_coverage >= REACT_QUALITY_THRESHOLD:

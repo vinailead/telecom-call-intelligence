@@ -20,6 +20,7 @@ def isolate(monkeypatch, tmp_path):
     monkeypatch.setattr(
         analyzer, "_gemini_quota_breaker", CircuitBreaker(tmp_path / ".react_quota_exhausted")
     )
+    analyzer.reset_failed_call_tokens()
 
 
 def _state(transcripts: list[dict]) -> dict:
@@ -95,6 +96,18 @@ class TestExtractionAgent:
 
         with pytest.raises(BudgetGuard.BudgetExceededError):
             ExtractionAgent().run(_state([make_transcript("c1")]))
+
+        # Failed-call billed tokens must also feed into _compute_cumulative_cost
+        analyzer.reset_failed_call_tokens()
+        analyzer._record_failed_call_tokens(5000, 1000, 0, 0)
+        captured: list[tuple[int, int, int, int]] = []
+        monkeypatch.setattr(
+            ext_mod,
+            "_cost_usd",
+            lambda p, c, cc=0, cr=0: (captured.append((p, c, cc, cr)) or 0.0),
+        )
+        ExtractionAgent._compute_cumulative_cost([])
+        assert captured == [(5000, 1000, 0, 0)]
 
     def test_missing_state_key_rejected(self):
         with pytest.raises(Exception):

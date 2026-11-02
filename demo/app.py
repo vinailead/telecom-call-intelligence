@@ -14,13 +14,14 @@ Run from the project root:
 Open:  http://localhost:8001
 """
 
+import hmac
 import os
 import time
 import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
@@ -34,6 +35,7 @@ from pipeline.analyzer import (  # noqa: E402
     score_field_coverage,
 )
 from pipeline.config import EXTRACTION_API_TIMEOUT_S  # noqa: E402
+from pipeline.governance import PII_SCANNER  # noqa: E402
 from pipeline.llm_clients import get_anthropic_client, get_gemini_client  # noqa: E402
 from pipeline.security import INPUT_SANITIZER, OUTPUT_SANITIZER  # noqa: E402
 
@@ -502,11 +504,22 @@ app = FastAPI(
     title="cci.ai — Care Cost Intelligence", version="1.0.0", docs_url=None, redoc_url=None
 )
 
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:8001",
+    "http://127.0.0.1:8001",
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+]
+_cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "").strip()
+_allowed_origins = (
+    [o.strip() for o in _cors_env.split(",") if o.strip()] if _cors_env else _DEFAULT_CORS_ORIGINS
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_allowed_origins,
     allow_methods=["GET", "POST"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 
@@ -527,34 +540,51 @@ def serve_architecture() -> FileResponse:
 
 @app.get("/health")
 def health() -> JSONResponse:
+    ready = _client is not None or _MOCK_ONLY
     return JSONResponse(
         {
-            "status": "ok",
+            "status": "ok" if ready else "degraded",
             "provider": _provider,
-            "ready": _client is not None or _MOCK_ONLY,
+            "ready": ready,
             "mock_only": _MOCK_ONLY,
         }
     )
 
 
 @app.post("/analyze")
-def analyze(req: AnalyzeRequest) -> JSONResponse:
+def analyze(req: AnalyzeRequest, request: Request) -> JSONResponse:
+    expected_key = (os.getenv("CCI_API_KEY") or os.getenv("API_BEARER_TOKEN") or "").strip()
+    if expected_key:
+        auth_header = request.headers.get("authorization", "")
+        provided = request.headers.get("x-api-key", "").strip()
+        if not provided and auth_header.lower().startswith("bearer "):
+            provided = auth_header[7:].strip()
+        if not provided or not hmac.compare_digest(provided, expected_key):
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "Invalid or missing API key."},
+            )
+
     t0 = time.monotonic()
     call_id = req.call_id or str(uuid.uuid4())
     transcript_text = req.transcript
 
+    transcript_dict: dict = {
+        "call_id": call_id,
+        "transcript_text": transcript_text,
+        "call_date": time.strftime("%Y-%m-%d"),
+    }
+    try:
+        transcript_dict = INPUT_SANITIZER.sanitize_transcript(transcript_dict)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content={"detail": str(exc)},
+        )
+    transcript_dict = PII_SCANNER.scan_transcript(transcript_dict)
+
     # Try real extraction if client is available
     if _client is not None and not _MOCK_ONLY:
-        transcript_dict: dict = {
-            "call_id": call_id,
-            "transcript_text": transcript_text,
-            "call_date": time.strftime("%Y-%m-%d"),
-        }
-        try:
-            transcript_dict = INPUT_SANITIZER.sanitize_transcript(transcript_dict)
-        except ValueError:
-            pass  # fall through to mock
-
         result = analyze_transcript(_client, _get_prompt(), transcript_dict)
         if result is not None:
             qa = score_field_coverage(result)
@@ -565,6 +595,7 @@ def analyze(req: AnalyzeRequest) -> JSONResponse:
                 "_total_tokens",
                 "_cache_creation_tokens",
                 "_cache_read_tokens",
+                "_pii_redacted",
             ):
                 result.pop(key, None)
             return JSONResponse(

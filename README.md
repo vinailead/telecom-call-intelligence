@@ -148,7 +148,7 @@ Pipeline mechanics for a typical single run — cost, runtime, extraction reliab
 | **QA Score** pass rate (HIGH+MEDIUM — extraction was well-formed; *not* the Data Quality Gate, see below) | Typically 90–99% |
 | Avg QA Score | 85–99 / 100 |
 | Pipeline runtime | ~8 min (5 × 20 batches, 2s inter-call delay) |
-| Extraction cost (Claude Haiku) | ~$0.76 / 100 calls (~$0.0076/call) |
+| Extraction cost (Claude Haiku) | ~$1.37 / 100 calls (~$0.0137/call with prompt caching; see `outputs/summary.json`) |
 | Extraction cost (Gemini free tier) | ~$0.00 / 100 calls (free-tier eligible) |
 | Deliberation passes | 3 per insights run |
 | Decision records per run | 15–60 traceable decisions |
@@ -180,7 +180,7 @@ They're kept separate on purpose. A 100-pt QA score only tells you the extractio
 |---|---|
 | Calls processed | **217** |
 | Extraction success rate | **100%** — zero technical/LLM failures |
-| **Fully trusted — meets the product's success criteria** (QA score + all 3 data-integrity checks) | **172 (79.3%)** |
+| **Eligible for KPI aggregation — passed QA score + all 3 data-integrity checks** | **172 (79.3%)** |
 | Excluded, each with a specific logged reason | 45 |
 
 **Why calls get excluded** — three specific, auditable constraints, not a vague error rate. Each recurs at enterprise scale and each has a known mitigation:
@@ -257,8 +257,8 @@ make clean         # remove __pycache__, .pyc, pytest cache
 | **Self-reflection / deliberation** | `insights_agent.py` | 3-pass Analyze → Critique → Synthesize loop with A/B/C recommendation grading |
 | **Decision traceability** | `decision_log.py`, all agents | Structured WHY records for every autonomous decision, with evidence and alternatives |
 | **Semantic long-term memory** | `vector_memory.py` | Gemini-embedded KPI histories with cosine similarity retrieval |
-| **Tool access control** | `security.py` | `AgentScopeGuard` enforces per-agent authorised tool sets |
-| **Human-in-the-loop (optional)** | `graph.py` | Approval gate before outputs are written; off by default, auto-approves on timeout/non-interactive |
+| **Tool access control** | `security.py` | `AgentScopeGuard` defines per-agent authorised tool sets (enforced in `ExtractionAgent`; declarative registry for remaining agents) |
+| **Human-in-the-loop (optional)** | `graph.py` | Approval gate before outputs are written; off by default, auto-approves in non-interactive environments (`EOFError`) |
 | **Distributed tracing** | `graph.py` | LangSmith integration via `LANGCHAIN_TRACING_V2` — full span capture |
 | **Plug-and-play providers** | `config.py`, `analyzer.py`, `token_tracker.py` | Single `EXTRACTION_MODEL` config value drives all downstream provider logic |
 
@@ -413,7 +413,7 @@ The 7-node architecture is designed for this. Only `data_agent.py` changes when 
 **cci.ai** is the market-facing name and public surface of this pipeline: an enterprise-CX positioning ("Interaction Cost Intelligence"), a landing page, an architecture page, and an interactive demo. It lives in [`demo/`](demo/) and is the same pipeline underneath — no separate codebase.
 
 - `demo/app.py` — standalone FastAPI server: serves the pages and a single `/analyze` endpoint. Real Claude Haiku extraction when an API key is present; falls back to pre-computed results for the 3 bundled sample transcripts.
-- **Not a source of metrics or privacy claims.** Every figure in these docs traces to `outputs/summary.json` and the combined run data. The demo and `api/main.py` use input/output sanitizers only — no `PIIScanner`, authentication, or rate limiting — so don't send them sensitive transcripts.
+- **Not a source of metrics or privacy claims.** Every figure in these docs traces to `outputs/summary.json` and the combined run data. Both `demo/app.py` and `api/main.py` enforce `InputSanitizer`, `OutputSanitizer`, `PIIScanner.scan_transcript()`, and optional API-key authentication (`CCI_API_KEY` / `API_BEARER_TOKEN`).
 - `render.yaml` — Render blueprint (`cci-ai-demo`) for the hosted demo. It sets `DEMO_MOCK_ONLY=1`, so the hosted instance **never calls an LLM or spends API credit**.
 - Run locally: `uvicorn demo.app:app --port 8001 --reload` → http://localhost:8001
 

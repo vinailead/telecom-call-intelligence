@@ -66,15 +66,11 @@ TRACING_ENABLED = bool(os.environ.get("LANGFUSE_PUBLIC_KEY")) and bool(
 
 # Anything longer than this on ANY exported span is assumed to be transcript
 # content, not a short structured field, and is redacted before Langfuse
-# ever receives it. Deliberately not scoped to a specific instrumentation
-# library's `instrumentation_scope_name` (e.g. "opentelemetry.instrumentation.
-# anthropic", "openinference.instrumentation.google_genai") — matching that
-# exactly is brittle against library version changes and got this wrong once
-# already; every span this pipeline emits is either one of ours (small,
-# structured, well under this threshold by construction — see analyzer.py/
-# insights_agent.py) or an auto-instrumented LLM call whose raw prompt/
-# response is exactly what must never leave the process unredacted.
-_REDACT_THRESHOLD_CHARS = 500
+# ever receives it. Set to 140 chars — strictly below MIN_TRANSCRIPT_CHARS
+# (150 in pipeline/security.py) so even the shortest valid transcript is
+# masked, while short structured metadata (call_id, call_date, channel) passes
+# through untouched.
+_REDACT_THRESHOLD_CHARS = 140
 
 _client: Any = None
 

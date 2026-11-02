@@ -27,14 +27,22 @@ VALID_TRANSCRIPT = (
 
 
 class TestHealth:
-    def test_health_ok(self):
+    def test_health_ok(self, monkeypatch):
+        monkeypatch.setattr(api_main, "_extraction_client", object())
         resp = client.get("/health")
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
         assert body["model"] == EXTRACTION_MODEL
-        assert isinstance(body["client_ready"], bool)
+        assert body["client_ready"] is True
         assert body["uptime_seconds"] >= 0
+
+        # When _extraction_client is None, /health reports degraded status
+        monkeypatch.setattr(api_main, "_extraction_client", None)
+        resp_deg = client.get("/health")
+        assert resp_deg.status_code == 200
+        assert resp_deg.json()["status"] == "degraded"
+        assert resp_deg.json()["client_ready"] is False
 
 
 # ── /summary ──────────────────────────────────────────────────────────
@@ -146,8 +154,43 @@ class TestAnalyzeRouting:
             return make_record()
 
         monkeypatch.setattr(api_main, "analyze_transcript", fake_analyze)
-        resp = client.post("/analyze", json={"transcript": VALID_TRANSCRIPT})
+        resp = client.post(
+            "/analyze",
+            json={"transcript": VALID_TRANSCRIPT + "\nCUSTOMER: My SSN is 123-45-6789."},
+        )
         assert resp.status_code == 200
         # UUID4 format: 36 chars with hyphens
         assert len(resp.json()["call_id"]) == 36
         assert captured["call_id"] == resp.json()["call_id"]
+        # PII must be redacted before reaching analyze_transcript
+        assert "123-45-6789" not in captured["transcript_text"]
+        assert "[REDACTED]" in captured["transcript_text"]
+
+        # Optional API-key auth enforcement when CCI_API_KEY is configured
+        monkeypatch.setenv("CCI_API_KEY", "secret-token-123")
+        unauth = client.post("/analyze", json={"transcript": VALID_TRANSCRIPT})
+        assert unauth.status_code == 401
+        authed = client.post(
+            "/analyze",
+            json={"transcript": VALID_TRANSCRIPT},
+            headers={"Authorization": "Bearer secret-token-123"},
+        )
+        assert authed.status_code == 200
+
+        # demo.app hardening: no wildcard CORS and 422 on sanitizer ValueError
+        import demo.app as demo_app
+
+        assert "*" not in demo_app._allowed_origins
+        monkeypatch.setattr(demo_app, "_client", None)
+        monkeypatch.setattr(
+            demo_app.INPUT_SANITIZER,
+            "sanitize_transcript",
+            lambda t: (_ for _ in ()).throw(ValueError("invalid transcript payload")),
+        )
+        demo_client = TestClient(demo_app.app, raise_server_exceptions=False)
+        bad_demo = demo_client.post(
+            "/analyze",
+            json={"transcript": VALID_TRANSCRIPT},
+            headers={"X-API-Key": "secret-token-123"},
+        )
+        assert bad_demo.status_code == 422

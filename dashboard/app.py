@@ -1507,7 +1507,7 @@ def _compact_row_html(cat: dict) -> str:
 
 
 def _build_queue_title(item: dict) -> str:
-    cat_title = item["category"].title()
+    cat_title = html.escape(item["category"].title())
     if item["segment"] == "prevent":
         return f"{cat_title} &mdash; Proactive Outreach"
     ss, ai = item.get("self_serve_count", 0), item.get("agentic_count", 0)
@@ -1519,7 +1519,7 @@ def _build_queue_title(item: dict) -> str:
 
 
 def _build_queue_desc(item: dict) -> str:
-    cat_title = item["category"].title()
+    cat_title = html.escape(item["category"].title())
     count, total, pct = item["count"], item["category_count"], item["pct"]
     if item["segment"] == "prevent":
         return (
@@ -1542,7 +1542,7 @@ def _build_queue_desc(item: dict) -> str:
 
 
 def _build_queue_row_html(item: dict, rank: int) -> str:
-    dollar_cls = f"it-dollar-{item['segment']}"
+    dollar_cls = f"it-dollar-{html.escape(str(item['segment']))}"
     return (
         f'<div class="it-queue-row">'
         f'<div class="it-queue-rank">{rank}</div>'
@@ -2572,9 +2572,9 @@ def main():
             (
                 p4,
                 "Model",
-                meta.get("model", "—")[:22],
+                html.escape(str(meta.get("model", "—"))[:22]),
                 "#0F172A",
-                meta.get("inference_provider", ""),
+                html.escape(str(meta.get("inference_provider", ""))),
             ),
         ]
         for col, label, val, color, note in pipe_cards:
@@ -2809,7 +2809,7 @@ def main():
                 overrun_rows = "".join(
                     f'<div style="display:flex;justify-content:space-between;align-items:center;'
                     f'padding:8px 0;border-bottom:1px solid #F1F5F9;">'
-                    f'<span style="font-size:0.84rem;font-weight:600;color:#0F172A;text-transform:capitalize;">{phase}</span>'
+                    f'<span style="font-size:0.84rem;font-weight:600;color:#0F172A;text-transform:capitalize;">{html.escape(str(phase))}</span>'
                     f'<div style="display:flex;align-items:center;gap:10px;">'
                     f'<div style="width:100px;height:6px;background:#F1F5F9;border-radius:3px;overflow:hidden;">'
                     f'<div style="height:6px;background:#F97316;border-radius:3px;width:{pct:.0f}%;"></div></div>'

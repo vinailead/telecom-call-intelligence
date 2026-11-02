@@ -193,12 +193,23 @@ class TestOutputSanitizer:
     def test_sanitize_insights_clean_passes_through(self):
         insights = {
             "executive_summary": "FCR improved by 5%.",
-            "top_recommendations": [{"priority": 1, "title": "Fix FCR"}],
-            "quick_wins": ["Enable self-serve"],
+            "top_recommendations": [
+                {
+                    "priority": 1,
+                    "title": "Fix FCR",
+                    "code": "eval('bad')",
+                    "secret": "AIzaFakeKeyForTestingSecurityModuleXYZ1",
+                }
+            ],
+            "quick_wins": ["Enable self-serve", "__import__('os').system('id')"],
             "risk_flags": ["High escalation"],
         }
         out = self.san.sanitize_insights(insights)
         assert out["executive_summary"] == "FCR improved by 5%."
+        assert out["top_recommendations"][0]["title"] == "Fix FCR"
+        assert out["top_recommendations"][0]["code"] == "[CONTENT_FILTERED]"
+        assert out["top_recommendations"][0]["secret"] == "[SECRET_REDACTED]"
+        assert out["quick_wins"] == ["Enable self-serve", "[CONTENT_FILTERED]"]
 
 
 # ── AgentScopeGuard ───────────────────────────────────────────────────

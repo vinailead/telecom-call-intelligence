@@ -34,6 +34,7 @@ def isolate_analyzer(tmp_path, monkeypatch):
         analyzer, "_gemini_quota_breaker", CircuitBreaker(tmp_path / ".react_quota_exhausted")
     )
     monkeypatch.setattr(analyzer.time, "sleep", lambda s: None)
+    analyzer.reset_failed_call_tokens()
 
 
 # ── JSON parsing ──────────────────────────────────────────────────────
@@ -167,7 +168,7 @@ class TestAnalyzeTranscript:
         assert result["_cache_read_tokens"] == 4675
         assert result["_total_tokens"] == 600 + 2145 + 0 + 4675
 
-    def test_persistent_json_error_returns_none(self, monkeypatch, make_transcript):
+    def test_persistent_json_error_returns_none(self, monkeypatch, make_transcript, make_record):
         monkeypatch.setattr(analyzer, "_USE_CLAUDE", True)
         monkeypatch.setattr(
             analyzer,
@@ -175,6 +176,31 @@ class TestAnalyzeTranscript:
             lambda client, sp, msg, max_tokens: ("not json at all", 10, 10, 0, 0),
         )
         assert analyze_transcript(None, "sp", make_transcript(), max_retries=2) is None
+        # Billed tokens from both failed attempts must be recorded for BudgetGuard
+        assert analyzer.get_failed_call_tokens() == {
+            "prompt": 20,
+            "completion": 20,
+            "cache_creation": 0,
+            "cache_read": 0,
+        }
+
+        # When a first attempt fails JSON parsing and the retry succeeds, the
+        # returned record must include token spend from BOTH billed attempts.
+        payload = {k: v for k, v in make_record().items() if not k.startswith("_")}
+        attempts = iter(
+            [
+                ("not json", 100, 50, 10, 5),
+                (json.dumps(payload), 200, 80, 0, 20),
+            ]
+        )
+        monkeypatch.setattr(analyzer, "_call_claude", lambda *a: next(attempts))
+        recovered = analyze_transcript(None, "sp", make_transcript(), max_retries=2)
+        assert recovered is not None
+        assert recovered["_prompt_tokens"] == 300
+        assert recovered["_completion_tokens"] == 130
+        assert recovered["_cache_creation_tokens"] == 10
+        assert recovered["_cache_read_tokens"] == 25
+        assert recovered["_total_tokens"] == 300 + 130 + 10 + 25
 
     def test_persistent_api_error_returns_none(self, monkeypatch, make_transcript):
         def boom(client, sp, msg, max_tokens):

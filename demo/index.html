@@ -1814,11 +1814,11 @@ function renderResults(data) {
       <div class="issue-card">
         <div class="issue-num">${n}</div>
         <div>
-          <div class="issue-desc">${desc}</div>
+          <div class="issue-desc">${escapeHtml(String(desc))}</div>
           <div class="issue-meta">
-            <span class="chip chip-blue">${cat}</span>
+            <span class="chip chip-blue">${escapeHtml(String(cat))}</span>
             ${resolved ? '<span class="chip chip-green">Resolved</span>' : '<span class="chip chip-red">Unresolved</span>'}
-            ${method ? `<span class="chip chip-slate">${method.replace(/_/g,' ')}</span>` : ''}
+            ${method ? `<span class="chip chip-slate">${escapeHtml(String(method).replace(/_/g,' '))}</span>` : ''}
           </div>
         </div>
       </div>`;
@@ -1830,9 +1830,9 @@ function renderResults(data) {
   const sEnd = fmt(e.customer_sentiment_end, 'unknown');
   const improved = e.customer_sentiment_improved;
   document.getElementById('sentiment-row').innerHTML = `
-    <span class="sentiment-badge ${sentimentClass(sStart)}">${sStart}</span>
+    <span class="sentiment-badge ${sentimentClass(sStart)}">${escapeHtml(sStart)}</span>
     <span class="sentiment-arrow">${improved ? '→' : '→'}</span>
-    <span class="sentiment-badge ${sentimentClass(sEnd)}">${sEnd}</span>
+    <span class="sentiment-badge ${sentimentClass(sEnd)}">${escapeHtml(sEnd)}</span>
     ${improved ? '<span style="font-size:.75rem;color:#16A34A;font-weight:700;margin-left:6px">↑ Improved</span>'
                : (sStart !== 'unknown' && sStart === sEnd ? '' : '<span style="font-size:.75rem;color:#EF4444;font-weight:700;margin-left:6px">No improvement</span>')}
   `;
@@ -1847,22 +1847,22 @@ function renderResults(data) {
     <div class="decision-card">
       <div class="decision-card-title">Avoidable Call</div>
       <div class="decision-verdict ${avoidable ? 'verdict-yes' : 'verdict-no'}">${avoidable ? 'YES' : 'NO'}</div>
-      <div class="decision-detail">${fmt(e.avoidable_call_reason, avoidable ? 'Call could have been prevented.' : 'This contact was necessary.')}</div>
+      <div class="decision-detail">${escapeHtml(fmt(e.avoidable_call_reason, avoidable ? 'Call could have been prevented.' : 'This contact was necessary.'))}</div>
     </div>
     <div class="decision-card">
       <div class="decision-card-title">AI Resolvable</div>
       <div class="decision-verdict ${aiResolvable ? 'verdict-yes' : 'verdict-no'}">${aiResolvable === null || aiResolvable === undefined ? 'N/A' : aiResolvable ? 'YES' : 'NO'}</div>
-      <div class="decision-detail">${fmt(e.agentic_ai_resolvable_rationale, 'No rationale available.')}</div>
+      <div class="decision-detail">${escapeHtml(fmt(e.agentic_ai_resolvable_rationale, 'No rationale available.'))}</div>
     </div>
     <div class="decision-card">
       <div class="decision-card-title">Self-Serve Deflection</div>
-      <div class="decision-verdict ${selfServe ? 'verdict-yes' : 'verdict-no'}">${selfServe ? (e.self_serve_channel_applicable || 'YES').toUpperCase() : 'NO'}</div>
-      <div class="decision-detail">${fmt(e.self_serve_deflection_rationale, selfServe ? 'Customer could self-serve.' : 'Agent handling required.')}</div>
+      <div class="decision-verdict ${selfServe ? 'verdict-yes' : 'verdict-no'}">${selfServe ? escapeHtml(String(e.self_serve_channel_applicable || 'YES').toUpperCase()) : 'NO'}</div>
+      <div class="decision-detail">${escapeHtml(fmt(e.self_serve_deflection_rationale, selfServe ? 'Customer could self-serve.' : 'Agent handling required.'))}</div>
     </div>
     <div class="decision-card">
       <div class="decision-card-title">Proactive Outreach</div>
       <div class="decision-verdict ${proactive ? 'verdict-yes' : 'verdict-no'}">${proactive ? 'YES' : 'NO'}</div>
-      <div class="decision-detail">${fmt(e.proactive_outreach_trigger, proactive ? 'Proactive trigger identified.' : 'No proactive trigger found.')}</div>
+      <div class="decision-detail">${escapeHtml(fmt(e.proactive_outreach_trigger, proactive ? 'Proactive trigger identified.' : 'No proactive trigger found.'))}</div>
     </div>
   `;
 
@@ -1872,9 +1872,9 @@ function renderResults(data) {
   const skillRating = (e.agent_skill_rating || '').toLowerCase();
   const skillClass = skillRating === 'proficient' ? 'skill-pill-proficient' : skillRating === 'adequate' ? 'skill-pill-adequate' : skillRating === 'needs_improvement' ? 'skill-pill-needs' : 'risk-unknown';
   document.getElementById('risk-row').innerHTML = `
-    <span class="risk-pill ${riskClass}">Repeat Call Risk: ${risk.toUpperCase()}</span>
-    ${e.primary_cost_driver ? `<span class="risk-pill cost-pill">Cost Driver: ${e.primary_cost_driver.replace(/_/g,' ')}</span>` : ''}
-    ${skillRating ? `<span class="risk-pill ${skillClass}">Agent: ${skillRating.replace(/_/g,' ')}</span>` : ''}
+    <span class="risk-pill ${riskClass}">Repeat Call Risk: ${escapeHtml(risk.toUpperCase())}</span>
+    ${e.primary_cost_driver ? `<span class="risk-pill cost-pill">Cost Driver: ${escapeHtml(String(e.primary_cost_driver).replace(/_/g,' '))}</span>` : ''}
+    ${skillRating ? `<span class="risk-pill ${skillClass}">Agent: ${escapeHtml(skillRating.replace(/_/g,' '))}</span>` : ''}
   `;
 
   // Recommendations
@@ -1884,8 +1884,8 @@ function renderResults(data) {
     <div class="rec-card">
       <div class="rec-icon">${recsIcons[i % recsIcons.length]}</div>
       <div>
-        <div class="rec-text">${r.text}</div>
-        <span class="rec-tag">${r.tag}</span>
+        <div class="rec-text">${escapeHtml(String(r.text))}</div>
+        <span class="rec-tag">${escapeHtml(String(r.tag))}</span>
       </div>
     </div>
   `).join('') || '<p style="color:#94A3B8;font-size:.83rem">No recommendations generated.</p>';
@@ -1894,10 +1894,10 @@ function renderResults(data) {
   const cot = fmt(e._cot_reasoning, '');
   const obs = fmt(e.key_observations, '');
   let reasoningHtml = '';
-  if (cot) reasoningHtml += `<p style="margin-bottom:12px">${cot}</p>`;
+  if (cot) reasoningHtml += `<p style="margin-bottom:12px">${escapeHtml(cot)}</p>`;
   if (obs) {
     const bullets = obs.split('|').map(s => s.trim()).filter(Boolean);
-    reasoningHtml += `<ul>${bullets.map(b => `<li>${b}</li>`).join('')}</ul>`;
+    reasoningHtml += `<ul>${bullets.map(b => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`;
   }
   document.getElementById('reasoning-body').innerHTML = reasoningHtml || '<p style="color:#94A3B8">No reasoning captured.</p>';
 }

@@ -290,13 +290,18 @@ class TestMaskOtelSpans:
 
     def test_boundary_length_is_not_redacted(self):
         """A string of exactly the threshold length is not redacted —
-        only strings strictly longer than it are."""
+        only strings strictly longer than it (including 150-char min transcripts) are."""
         ident = OtelSpanIdentifier(trace_id="t1", span_id="s1")
         span = _FakeSpan({"field": "A" * tracing._REDACT_THRESHOLD_CHARS})
 
         result = tracing._mask_otel_spans(params=_params({ident: span}))
 
         assert result is None
+
+        min_tx_span = _FakeSpan({"prompt": "T" * 150})
+        masked = tracing._mask_otel_spans(params=_params({ident: min_tx_span}))
+        assert masked is not None
+        assert "150 chars" in masked.span_patches[ident].set_attributes["prompt"]
 
 
 # ── configure(): wiring, without touching real SDKs or the network ──────

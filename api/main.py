@@ -15,6 +15,8 @@ The /analyze endpoint calls analyze_transcript() directly — no LangGraph
 orchestration — so it avoids the full batch pipeline overhead for one-shot use.
 """
 
+import hmac
+import os
 import time
 import uuid
 from pathlib import Path
@@ -33,6 +35,7 @@ from pipeline.config import (  # noqa: E402
     MAX_OUTPUT_TOKENS,
     OUTPUT_DIR,
 )
+from pipeline.governance import PII_SCANNER  # noqa: E402
 from pipeline.llm_clients import get_anthropic_client, get_gemini_client  # noqa: E402
 from pipeline.security import INPUT_SANITIZER, OUTPUT_SANITIZER  # noqa: E402
 
@@ -121,18 +124,35 @@ class HealthResponse(BaseModel):
     summary_available: bool
 
 
+def _verify_api_key(request: Request) -> None:
+    """Enforce optional API key auth when CCI_API_KEY / API_BEARER_TOKEN is configured."""
+    expected = (os.getenv("CCI_API_KEY") or os.getenv("API_BEARER_TOKEN") or "").strip()
+    if not expected:
+        return
+    auth_header = request.headers.get("authorization", "")
+    provided = request.headers.get("x-api-key", "").strip()
+    if not provided and auth_header.lower().startswith("bearer "):
+        provided = auth_header[7:].strip()
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key.",
+        )
+
+
 # ── Route: health ──────────────────────────────────────────────────────
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Operations"])
 def health() -> HealthResponse:
+    ready = _extraction_client is not None
     return HealthResponse(
-        status="ok",
+        status="ok" if ready else "degraded",
         uptime_seconds=round(time.time() - _start_time, 1),
         model=EXTRACTION_MODEL,
         provider=_client_provider,
         max_output_tokens=MAX_OUTPUT_TOKENS,
-        client_ready=_extraction_client is not None,
+        client_ready=ready,
         summary_available=Path(OUTPUT_DIR / "summary.json").exists(),
     )
 
@@ -160,6 +180,7 @@ def summary() -> JSONResponse:
 
 @app.post("/analyze", response_model=AnalyzeResponse, tags=["Extraction"])
 def analyze(req: AnalyzeRequest, request: Request) -> AnalyzeResponse:
+    _verify_api_key(request)
     if _extraction_client is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -180,6 +201,7 @@ def analyze(req: AnalyzeRequest, request: Request) -> AnalyzeResponse:
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
+    transcript_dict = PII_SCANNER.scan_transcript(transcript_dict)
     system_prompt = _get_system_prompt()
 
     result = analyze_transcript(_extraction_client, system_prompt, transcript_dict)
@@ -192,8 +214,15 @@ def analyze(req: AnalyzeRequest, request: Request) -> AnalyzeResponse:
 
     result = OUTPUT_SANITIZER.sanitize_extraction_result(result)
 
-    # Strip internal token-accounting keys from the public response
-    for key in ("_prompt_tokens", "_completion_tokens", "_total_tokens"):
+    # Strip internal token-accounting and PII-audit keys from the public response
+    for key in (
+        "_prompt_tokens",
+        "_completion_tokens",
+        "_total_tokens",
+        "_cache_creation_tokens",
+        "_cache_read_tokens",
+        "_pii_redacted",
+    ):
         result.pop(key, None)
 
     return AnalyzeResponse(

@@ -45,6 +45,7 @@ from pipeline.config import (
 from pipeline.config import (
     OUTPUT_DIR as CHECKPOINT_DIR,
 )
+from pipeline.governance import BUDGET_GUARD
 from pipeline.llm_clients import get_anthropic_client, get_gemini_client
 from pipeline.logger import get_logger
 from pipeline.security import (
@@ -55,6 +56,7 @@ from pipeline.security import (
     SECRET_GUARD,
     SecurityViolation,
 )
+from pipeline.token_tracker import cost_usd as _cost_usd
 from pipeline.tracing import call_trace_id, traced_span
 
 _USE_CLAUDE = MODEL.startswith("claude")
@@ -66,6 +68,38 @@ log = get_logger(__name__)
 # batch) inherit the exhausted state immediately instead of burning more
 # quota rediscovering it.
 _gemini_quota_breaker = CircuitBreaker(GEMINI_QUOTA_SENTINEL)
+
+# Billed tokens from attempts that ultimately returned None (or failed gap-fill
+# post-processing). Tracked so BudgetGuard and ExtractionAgent account for
+# real provider spend on failed/rejected responses, not only successful dicts.
+_failed_call_tokens: dict[str, int] = {
+    "prompt": 0,
+    "completion": 0,
+    "cache_creation": 0,
+    "cache_read": 0,
+}
+
+
+def reset_failed_call_tokens() -> None:
+    """Reset unattributed failed-call token counters at the start of a batch."""
+    _failed_call_tokens["prompt"] = 0
+    _failed_call_tokens["completion"] = 0
+    _failed_call_tokens["cache_creation"] = 0
+    _failed_call_tokens["cache_read"] = 0
+
+
+def _record_failed_call_tokens(
+    in_tok: int, out_tok: int, cache_create_tok: int, cache_read_tok: int
+) -> None:
+    _failed_call_tokens["prompt"] += in_tok
+    _failed_call_tokens["completion"] += out_tok
+    _failed_call_tokens["cache_creation"] += cache_create_tok
+    _failed_call_tokens["cache_read"] += cache_read_tok
+
+
+def get_failed_call_tokens() -> dict[str, int]:
+    """Return a copy of billed token counts from permanently failed calls."""
+    return dict(_failed_call_tokens)
 
 
 # ── System prompt ─────────────────────────────────────────────────────
@@ -299,29 +333,40 @@ def analyze_transcript(
         tags=["extraction", provider],
         metadata={"call_id": call_id_short},
     ) as span:
+        spent_in_tok = 0
+        spent_out_tok = 0
+        spent_cache_create_tok = 0
+        spent_cache_read_tok = 0
+
         for attempt in range(max_retries):
             try:
                 text, in_tok, out_tok, cache_create_tok, cache_read_tok = _call_model(
                     client, system_prompt, _build_user_message(transcript), MAX_TOKENS
                 )
+                spent_in_tok += in_tok
+                spent_out_tok += out_tok
+                spent_cache_create_tok += cache_create_tok
+                spent_cache_read_tok += cache_read_tok
 
                 SECRET_GUARD.assert_no_secrets_in_output(text)
                 OUTPUT_SANITIZER.check_response_size(text, limit=MAX_RESPONSE_BYTES)
 
                 result = _parse_json_text(text)
                 result = OUTPUT_SANITIZER.sanitize_extraction_result(result)
-                result["_prompt_tokens"] = in_tok
-                result["_completion_tokens"] = out_tok
-                result["_cache_creation_tokens"] = cache_create_tok
-                result["_cache_read_tokens"] = cache_read_tok
-                result["_total_tokens"] = in_tok + out_tok + cache_create_tok + cache_read_tok
+                result["_prompt_tokens"] = spent_in_tok
+                result["_completion_tokens"] = spent_out_tok
+                result["_cache_creation_tokens"] = spent_cache_create_tok
+                result["_cache_read_tokens"] = spent_cache_read_tok
+                result["_total_tokens"] = (
+                    spent_in_tok + spent_out_tok + spent_cache_create_tok + spent_cache_read_tok
+                )
                 log.debug(
                     "OK  %s  prompt=%d  completion=%d  cache_write=%d  cache_read=%d",
                     call_id_short,
-                    in_tok,
-                    out_tok,
-                    cache_create_tok,
-                    cache_read_tok,
+                    spent_in_tok,
+                    spent_out_tok,
+                    spent_cache_create_tok,
+                    spent_cache_read_tok,
                 )
                 span.update(output=_safe_trace_output(result))
                 return result
@@ -335,6 +380,12 @@ def analyze_transcript(
                     exc,
                 )
                 if attempt == max_retries - 1:
+                    _record_failed_call_tokens(
+                        spent_in_tok,
+                        spent_out_tok,
+                        spent_cache_create_tok,
+                        spent_cache_read_tok,
+                    )
                     span.update(output={"error": "json_decode_error", "attempts": max_retries})
                     return None
                 time.sleep(2)
@@ -349,6 +400,12 @@ def analyze_transcript(
                     attempt + 1,
                     max_retries,
                     exc,
+                )
+                _record_failed_call_tokens(
+                    spent_in_tok,
+                    spent_out_tok,
+                    spent_cache_create_tok,
+                    spent_cache_read_tok,
                 )
                 span.update(output={"error": "security_violation", "check": exc.check})
                 return None
@@ -380,10 +437,22 @@ def analyze_transcript(
                         exc_str[:120],
                     )
                     if attempt == max_retries - 1:
+                        _record_failed_call_tokens(
+                            spent_in_tok,
+                            spent_out_tok,
+                            spent_cache_create_tok,
+                            spent_cache_read_tok,
+                        )
                         span.update(output={"error": type(exc).__name__, "attempts": max_retries})
                         return None
                     time.sleep(5 * (attempt + 1))
 
+        _record_failed_call_tokens(
+            spent_in_tok,
+            spent_out_tok,
+            spent_cache_create_tok,
+            spent_cache_read_tok,
+        )
         return None
 
 
@@ -449,6 +518,7 @@ def gap_fill_transcript(
 
     call_id = transcript.get("call_id", "?")
     call_id_short = call_id[:12]
+    transcript = INPUT_SANITIZER.sanitize_transcript(transcript)
     log.info(
         "[ReAct] call %s: gap-fill for %d missing fields: %s", call_id_short, len(missing), missing
     )
@@ -461,6 +531,7 @@ def gap_fill_transcript(
         tags=["extraction", "react-gap-fill", "claude" if _USE_CLAUDE else "gemini"],
         metadata={"call_id": call_id_short, "coverage_before": score_field_coverage(first_pass)},
     ) as span:
+        in_tok = out_tok = cache_create_tok = cache_read_tok = 0
         try:
             gap_msg = _build_gap_fill_message(transcript, missing)
             text, in_tok, out_tok, cache_create_tok, cache_read_tok = _call_model(
@@ -505,6 +576,7 @@ def gap_fill_transcript(
             return merged
 
         except Exception as exc:
+            _record_failed_call_tokens(in_tok, out_tok, cache_create_tok, cache_read_tok)
             exc_str = str(exc)
             if "429" in exc_str or "rate_limit" in exc_str.lower():
                 if not _USE_CLAUDE:
@@ -555,6 +627,7 @@ def analyze_batch(
     )
 
     system_prompt = load_system_prompt()
+    reset_failed_call_tokens()
 
     # ── Resume from checkpoint ───────────────────────────────────────
     results: list[dict] = []
@@ -614,6 +687,22 @@ def analyze_batch(
                     "ok": len(results) - initial_count,
                     "fail": len(failed_ids),
                 }
+            )
+
+            # In-loop budget guard: halt immediately if cumulative batch spend
+            # (including billed failed attempts) exceeds max_cost_usd.
+            running_cost = _cost_usd(
+                sum(r.get("_prompt_tokens", 0) for r in results) + _failed_call_tokens["prompt"],
+                sum(r.get("_completion_tokens", 0) for r in results)
+                + _failed_call_tokens["completion"],
+                sum(r.get("_cache_creation_tokens", 0) for r in results)
+                + _failed_call_tokens["cache_creation"],
+                sum(r.get("_cache_read_tokens", 0) for r in results)
+                + _failed_call_tokens["cache_read"],
+            )
+            BUDGET_GUARD.check(
+                running_cost,
+                context=f"analyze_batch call {i + 1}/{len(remaining)} ({transcript['call_id'][:12]})",
             )
 
             if i < len(remaining) - 1:

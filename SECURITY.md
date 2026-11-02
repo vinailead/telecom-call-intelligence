@@ -10,10 +10,10 @@ This policy covers the Telecom Call Intelligence pipeline and its supporting inf
 
 | Data type | Handling |
 |-----------|----------|
-| `ANTHROPIC_API_KEY` | Stored in `.env` only — never logged, never committed, `SecretGuard` redacts `sk-ant-*` patterns from all LLM outputs, state serialisation, and log messages |
-| `GEMINI_API_KEY` | Stored in `.env` only — `SecretGuard` redacts `AIza*` patterns from all outputs and logs |
-| `NVIDIA_API_KEY` | Stored in `.env` only — `SecretGuard` redacts `nvapi-*` patterns; also caught by env-var pattern guard |
-| Call transcript text | **Batch pipeline** (`run_pipeline.py` / `run_batches.py`, the path that produces `outputs/summary.json`): scanned by `PIIScanner` in `DataIngestionAgent` before any LLM call; 6 PII pattern types redacted to `[REDACTED]`; never stored in decision log evidence fields. **Standalone `api/main.py` and `demo/app.py`:** `InputSanitizer`/`OutputSanitizer` only — **no `PIIScanner`, no authentication, no rate limiting**; do not send sensitive transcripts to them |
+| `ANTHROPIC_API_KEY` | Stored in `.env` only — never logged, never committed; `SecretGuard.validate_env()` validates format at startup and `SecretGuard.assert_no_secrets_in_output()` blocks `sk-ant-*` patterns in raw LLM outputs (`scrub_state()` and `redact_for_log()` are available as helper utilities in `pipeline/security.py`) |
+| `GEMINI_API_KEY` | Stored in `.env` only — `SecretGuard.validate_env()` validates format at startup and `SecretGuard.assert_no_secrets_in_output()` blocks `AIza*` patterns in raw LLM outputs |
+| `NVIDIA_API_KEY` | Stored in `.env` only — `SecretGuard.validate_env()` validates format at startup and `SecretGuard.assert_no_secrets_in_output()` blocks `nvapi-*` patterns in raw LLM outputs |
+| Call transcript text | **Batch pipeline** (`run_pipeline.py` / `run_batches.py`, the path that produces `outputs/summary.json`): scanned by `PIIScanner` in `DataIngestionAgent` before any LLM call; 6 PII pattern types redacted to `[REDACTED]`; never stored in decision log evidence fields; Langfuse tracing (`pipeline/tracing.py`) redacts string values `>140 chars` (below `MIN_TRANSCRIPT_CHARS = 150`). **Standalone `api/main.py` and `demo/app.py`:** apply `InputSanitizer`, `OutputSanitizer`, `PIIScanner.scan_transcript()`, and optional API-key authentication (`CCI_API_KEY` / `API_BEARER_TOKEN`) |
 | `outputs/agent_memory.json` | Contains aggregated KPIs and run history only — no raw transcripts or PII |
 | `outputs/decisions_{ts}.json` | Agent reasoning records — evidence fields contain only scores/counts/flags, never transcript text |
 | `outputs/audit_log_{ts}.json` | Agent events and governance decisions — no transcript text |
@@ -23,7 +23,7 @@ This policy covers the Telecom Call Intelligence pipeline and its supporting inf
 
 ## PII Protection
 
-The `PIIScanner` in `pipeline/governance.py` runs on every transcript in the **batch pipeline** (`DataIngestionAgent`) **before** it is sent to any LLM. It is **not** called by the standalone `api/main.py` or `demo/app.py` servers, which apply the input/output sanitizers only and have no authentication or rate limiting. Patterns detected and redacted:
+The `PIIScanner` in `pipeline/governance.py` runs on every transcript in the **batch pipeline** (`DataIngestionAgent`) and in the standalone `api/main.py` and `demo/app.py` endpoints **before** it is sent to any LLM. Patterns detected and redacted:
 
 - US phone numbers (`phone_us`)
 - Social security numbers (`ssn`)
@@ -43,7 +43,7 @@ The telecom corpus (`talkmap/telecom-conversation-corpus`) is synthetic and anon
 - `.env` is listed in `.gitignore` and must never be committed
 - The pre-commit hook `detect-private-key` blocks accidental key commits
 - Keys are never printed, logged, or included in error messages
-- `SecretGuard.redact_for_log()` is called before any log message that might contain key material
+- `SecretGuard.validate_env()` validates configured API key formats at startup (`SecretGuard.redact_for_log()` and `SecretGuard.scrub_state()` are available in `pipeline/security.py` for explicit redaction)
 - `SecretGuard.assert_no_secrets_in_output()` is called on every raw LLM response before JSON parsing
 - Startup validation (`run_pipeline.py`) checks for the correct key based on `EXTRACTION_MODEL` — failure exits immediately with guidance, not a traceback
 
@@ -62,12 +62,12 @@ The telecom corpus (`talkmap/telecom-conversation-corpus`) is synthetic and anon
 | API key leakage via git | `.gitignore`, pre-commit `detect-private-key`, GitHub secret scanning, `SecretGuard` patterns for Anthropic + Google + OpenAI + NVIDIA + JWT + Bearer |
 | Prompt injection in transcript data | `InputSanitizer`: 10 regex patterns covering DAN mode, jailbreak, XML role injection, Llama template injection, instruction override; neutralise to `[FILTERED]` (not reject — prevents DoS from single bad record) |
 | Token bomb (DoS via oversized input) | `InputSanitizer`: hard cap at 50,000 chars; truncate with `[TRUNCATED-SECURITY]` marker |
-| PII in LLM prompts | Batch pipeline: `PIIScanner` redacts before every API call; `AuditLog` records detections. Standalone API/demo servers: not covered (sanitizers only) |
-| Code execution via LLM output | `OutputSanitizer`: `__import__`, `eval`, `exec`, `subprocess`, XSS patterns → `[CONTENT_FILTERED]` |
+| PII in LLM prompts | `PIIScanner` redacts 6 PII categories before every API call (batch `DataIngestionAgent` as well as `api/main.py` and `demo/app.py`); `AuditLog` records batch detections |
+| Code execution via LLM output | `OutputSanitizer`: recursive sanitization across strings, nested dicts, and lists (`__import__`, `eval`, `exec`, `subprocess`, XSS patterns → `[CONTENT_FILTERED]`) |
 | Secret leakage via LLM output | `SecretGuard.assert_no_secrets_in_output()` on every raw LLM response |
-| Cross-agent tool hijacking | `AgentScopeGuard`: per-agent authorised tool set; violation raises `SecurityViolation` before invocation |
+| Cross-agent tool hijacking | `AgentScopeGuard`: per-agent authorised tool registry; enforced in `ExtractionAgent.run()` (`score_extraction`) and declarative for remaining agents; violation raises `SecurityViolation` |
 | Response bomb (32KB+ LLM output) | `OutputSanitizer.check_response_size()`: hard cap at 32,768 bytes |
-| Runaway API cost (ReAct loops) | `BudgetGuard` (hard-stop at `BUDGET_USD` from `config.py`); `CLAUDE_RATE_LIMITER` (50/60s); `GEMINI_RATE_LIMITER` (15/60s) |
+| Runaway API cost (ReAct loops) | `BudgetGuard` enforced in-loop during `analyze_batch` and ReAct gap-fill retries plus cumulative cross-batch ledger in `Orchestrator` (hard-stop at `BUDGET_USD` from `config.py`); `CLAUDE_RATE_LIMITER` (50/60s); `GEMINI_RATE_LIMITER` (15/60s) |
 | Corrupt extraction data reaching aggregation | `QualityGate` blocks pipeline at < `MIN_PASS_RATE` QA pass rate |
 | Upstream corpus injection | HuggingFace streaming is read-only; every transcript validated and sanitised before use |
 | State tampering between agents | `InputSanitizer.validate_state_schema()` checks required keys at each agent boundary |

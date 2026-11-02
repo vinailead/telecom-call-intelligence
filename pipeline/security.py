@@ -200,41 +200,55 @@ class OutputSanitizer:
                 f"LLM response {size} bytes exceeds limit {limit} — blocking",
             )
 
+    def _sanitize_value(self, key: str, value: Any, max_field_len: int) -> Any:
+        """Recursively sanitize strings inside dicts and lists."""
+        if isinstance(value, str):
+            if len(value) > max_field_len:
+                value = value[:max_field_len] + "...[TRUNCATED]"
+
+            for pat in _CODE_EXECUTION_PATTERNS:
+                if pat.search(value):
+                    log.error("[OutputSanitizer] Code execution in field '%s' — filtering", key)
+                    value = "[CONTENT_FILTERED]"
+                    break
+
+            for pat in _SECRET_PATTERNS:
+                if pat.search(value):
+                    log.error("[OutputSanitizer] Secret in field '%s' — redacting", key)
+                    value = "[SECRET_REDACTED]"
+                    break
+            return value
+
+        if isinstance(value, dict):
+            return {
+                k: self._sanitize_value(f"{key}.{k}" if key else str(k), v, max_field_len)
+                for k, v in value.items()
+            }
+
+        if isinstance(value, list):
+            return [
+                self._sanitize_value(f"{key}[{i}]", item, max_field_len)
+                for i, item in enumerate(value)
+            ]
+
+        return value
+
     def sanitize_extraction_result(
         self, result: dict, max_field_len: int = MAX_FIELD_STRING_LEN
     ) -> dict:
         """
         Return a sanitized copy of an extraction result dict.
-        Truncates oversized fields, removes code execution payloads,
-        and redacts any secrets that leaked into the output.
+        Recursively truncates oversized fields, removes code execution payloads,
+        and redacts any secrets that leaked into the output (including nested
+        dicts and lists).
         """
         if not isinstance(result, dict):
             raise SecurityViolation("output_type", "LLM output must be a JSON object")
 
-        sanitized: dict[str, Any] = {}
-        for key, value in result.items():
-            if isinstance(value, str):
-                # Truncate runaway fields
-                if len(value) > max_field_len:
-                    value = value[:max_field_len] + "...[TRUNCATED]"
-
-                # Block code execution
-                for pat in _CODE_EXECUTION_PATTERNS:
-                    if pat.search(value):
-                        log.error("[OutputSanitizer] Code execution in field '%s' — filtering", key)
-                        value = "[CONTENT_FILTERED]"
-                        break
-
-                # Redact leaked secrets
-                for pat in _SECRET_PATTERNS:
-                    if pat.search(value):
-                        log.error("[OutputSanitizer] Secret in field '%s' — redacting", key)
-                        value = "[SECRET_REDACTED]"
-                        break
-
-            sanitized[key] = value
-
-        return sanitized
+        return {
+            key: self._sanitize_value(str(key), value, max_field_len)
+            for key, value in result.items()
+        }
 
     def sanitize_insights(self, insights: dict) -> dict:
         """

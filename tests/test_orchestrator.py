@@ -176,6 +176,23 @@ class TestStrictFailurePolicy:
         orch.run()
         assert not orchestrator_module._HALT_SENTINEL.exists()
 
+        # Cross-batch cumulative budget ledger: if batch 1 consumes the global
+        # BUDGET_USD, batch 2 must be halted before running.
+        orch_budget = Orchestrator(total_calls=40, batch_size=20, rate_limit_rpm=999)
+        ran_ids: list[int] = []
+
+        def fake_spend_task(task):
+            ran_ids.append(task.task_id)
+            task.status = "done"
+            task.cost_usd = orchestrator_module.BUDGET_USD
+
+        monkeypatch.setattr(orch_budget, "_run_task", fake_spend_task)
+        budget_report = orch_budget.run()
+        assert ran_ids == [1]  # batch 2 blocked because cumulative spend hit BUDGET_USD
+        assert budget_report["execution_summary"]["tasks_done"] == 1
+        assert budget_report["execution_summary"]["tasks_failed"] == 1
+        assert orchestrator_module._HALT_SENTINEL.exists()
+
     def test_clear_halt_sentinel_removes_file(self, monkeypatch, tmp_path):
         self._patch_sentinels(monkeypatch, tmp_path)
         orchestrator_module._HALT_SENTINEL.write_text("{}")

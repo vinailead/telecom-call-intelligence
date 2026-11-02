@@ -88,6 +88,7 @@ class BatchTask:
     qa_verdict: str = ""
     data_quality_pass_rate_pct: float | None = None
     failed_call_ids: list = field(default_factory=list)
+    cost_usd: float = 0.0
 
     @property
     def checkpoint_key(self) -> str:
@@ -213,6 +214,7 @@ class Orchestrator:
         # sibling batches (even sequential) would then exceed the global cap.
         n_batches = len(self.tasks) or 1
         self._budget_per_batch = round(BUDGET_USD / n_batches, 4)
+        self.cumulative_cost_usd: float = 0.0
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -283,7 +285,18 @@ class Orchestrator:
 
         while queue:
             task = queue.pop(0)
-            self._run_task(task)
+            if self.cumulative_cost_usd >= BUDGET_USD:
+                task.status = "failed"
+                task.error_msg = f"Global budget exhausted (${self.cumulative_cost_usd:.4f} >= ${BUDGET_USD:.2f})"
+            else:
+                self._run_task(task)
+                self.cumulative_cost_usd = round(self.cumulative_cost_usd + task.cost_usd, 4)
+                if task.status == "done" and self.cumulative_cost_usd > BUDGET_USD:
+                    task.status = "failed"
+                    task.error_msg = (
+                        f"Cumulative spend ${self.cumulative_cost_usd:.4f} exceeded global "
+                        f"budget ${BUDGET_USD:.2f}"
+                    )
 
             if task.status == "failed":
                 self._write_halt_sentinel(task)
@@ -345,6 +358,8 @@ class Orchestrator:
             task.n_calls,
         )
 
+        remaining_budget = max(0.0, round(BUDGET_USD - self.cumulative_cost_usd, 4))
+        task_budget = min(self._budget_per_batch, remaining_budget)
         cmd = [
             sys.executable,
             "run_pipeline.py",
@@ -357,7 +372,7 @@ class Orchestrator:
             "--delay",
             str(task.delay),
             "--budget",
-            str(self._budget_per_batch),
+            str(task_budget),
         ]
 
         try:
@@ -456,6 +471,13 @@ class Orchestrator:
         task.qa_verdict = manifest.get("qa_verdict", "N/A")
         task.data_quality_pass_rate_pct = manifest.get("data_quality_pass_rate_pct")
         task.failed_call_ids = manifest.get("failed_call_ids", [])
+        token_usage = manifest.get("token_usage") or {}
+        if isinstance(token_usage, dict):
+            task.cost_usd = float(
+                token_usage.get("total_cost_usd", manifest.get("total_cost_usd", 0.0)) or 0.0
+            )
+        else:
+            task.cost_usd = float(manifest.get("total_cost_usd", 0.0) or 0.0)
 
     # ── Report ────────────────────────────────────────────────────────
 
@@ -466,6 +488,7 @@ class Orchestrator:
 
         total_n_ok = sum(t.n_ok for t in done)
         total_n_failed = sum(t.n_failed for t in done)
+        total_cost_usd = round(sum(t.cost_usd for t in self.tasks), 4)
         all_failed_ids = [cid for t in done for cid in t.failed_call_ids]
         dq_rates = [
             t.data_quality_pass_rate_pct for t in done if t.data_quality_pass_rate_pct is not None
@@ -489,6 +512,7 @@ class Orchestrator:
                 "tasks_failed": len(failed),
                 "total_elapsed_s": round(total_elapsed, 1),
                 "total_elapsed_min": round(total_elapsed / 60, 1),
+                "total_cost_usd": total_cost_usd,
                 "success_rate_pct": round(len(done) / len(self.tasks) * 100, 1)
                 if self.tasks
                 else 0,
@@ -515,6 +539,7 @@ class Orchestrator:
                     "n_failed": t.n_failed,
                     "qa_verdict": t.qa_verdict,
                     "data_quality_pass_rate_pct": t.data_quality_pass_rate_pct,
+                    "cost_usd": round(t.cost_usd, 4),
                 }
                 for t in self.tasks
             ],
@@ -587,8 +612,14 @@ class Orchestrator:
     def _update_memory(self, report: dict) -> None:
         try:
             MEMORY.load()
-            # Record each quota event detected (failed tasks)
-            if report["failed_task_ids"]:
+            # Record quota event only when the quota sentinel was tripped or a
+            # failed task explicitly indicates a 429/quota error (not timeouts/crashes).
+            quota_detected = _QUOTA_SENTINEL.exists() or any(
+                "429" in t.error_msg or "quota" in t.error_msg.lower()
+                for t in self.tasks
+                if t.status == "failed"
+            )
+            if quota_detected:
                 from pipeline.token_tracker import MODEL as CURRENT_MODEL
                 from pipeline.token_tracker import PROVIDER as CURRENT_PROVIDER
 

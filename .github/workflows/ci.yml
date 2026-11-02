@@ -10,14 +10,17 @@ on:
     - cron: "0 5 * * 1"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   semgrep:
     name: Semgrep security scan
     runs-on: ubuntu-latest
     container:
-      image: semgrep/semgrep
+      image: semgrep/semgrep:1.182.1
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # Isolated container image, not the `test` job's Python env: installing
       # semgrep alongside project deps downgrades opentelemetry and breaks
@@ -34,9 +37,9 @@ jobs:
     name: Lock files up to date
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.11"
 
@@ -61,9 +64,9 @@ jobs:
       GEMINI_API_KEY: ci-dummy-key-for-import-check
       NVIDIA_API_KEY: ci-dummy-key-for-import-check
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: "3.12"
 
@@ -83,16 +86,16 @@ jobs:
         python-version: ["3.11", "3.12"]
 
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY || 'ci-dummy-key-for-import-check' }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'ci-dummy-key-for-import-check' }}
-      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY || 'ci-dummy-key-for-import-check' }}
+      ANTHROPIC_API_KEY: ci-dummy-key-for-import-check
+      GEMINI_API_KEY: ci-dummy-key-for-import-check
+      NVIDIA_API_KEY: ci-dummy-key-for-import-check
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
