@@ -53,4 +53,4 @@ certifi>=2026.10.19
 pillow>=13.0.0
 aiohttp>=3.14.4
 filelock>=4.2.1
-opentelemetry-api>=1.45.1
+opentelemetry-api>=1.45.2
